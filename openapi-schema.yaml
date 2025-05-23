@@ -1,0 +1,420 @@
+openapi: 3.1.0
+info:
+  title: Notioc Canvas API
+  description: API for accessing Canvas LMS course content, discussions, pages, assignments, and files through AI assistants.
+  version: 1.0.0
+servers:
+  - url: https://your-domain.com/api
+    description: Notioc Canvas API Server
+
+paths:
+  /courses:
+    get:
+      operationId: getting_courses
+      summary: Get your Canvas courses
+      description: Retrieve all Canvas courses for the authenticated user, filtered by enrollment state.
+      parameters:
+        - name: enrollmentState
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, all]
+            default: active
+          description: Filter courses by enrollment state
+      responses:
+        '200':
+          description: Successfully retrieved courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  courses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        courseCode:
+                          type: string
+                        enrollmentType:
+                          type: string
+                        startDate:
+                          type: string
+                        endDate:
+                          type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/pages:
+    get:
+      operationId: getting_pages
+      summary: Get pages in a Canvas course
+      description: Retrieve all pages in a specific Canvas course with optional filtering and sorting.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [title, created_at, updated_at]
+            default: updated_at
+          description: Sort pages by field
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: searchTerm
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional search term to filter pages by title
+      responses:
+        '200':
+          description: Successfully retrieved pages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        pageId:
+                          type: string
+                        title:
+                          type: string
+                        url:
+                          type: string
+                        createdAt:
+                          type: string
+                        updatedAt:
+                          type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/pages/{pageId}:
+    get:
+      operationId: reading_page
+      summary: Read the content of a specific Canvas page
+      description: Retrieve the full content of a specific Canvas page.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas page ID or URL slug
+      responses:
+        '200':
+          description: Successfully retrieved page content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  url:
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/discussions:
+    get:
+      operationId: getting_discussions
+      summary: Get discussion topics in a Canvas course
+      description: Retrieve all discussion topics and announcements in a specific Canvas course.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: onlyAnnouncements
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Only list announcements
+        - name: orderBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [position, recent_activity, title]
+            default: recent_activity
+          description: Order discussions by field
+        - name: searchTerm
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional search term to filter discussions
+      responses:
+        '200':
+          description: Successfully retrieved discussions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  discussions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        message:
+                          type: string
+                        postedAt:
+                          type: string
+                        isAnnouncement:
+                          type: boolean
+                        url:
+                          type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/discussions/{discussionId}:
+    get:
+      operationId: reading_discussion
+      summary: Read the content of a specific Canvas discussion
+      description: Retrieve the full content of a specific Canvas discussion topic including replies.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas discussion topic ID
+        - name: includeReplies
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Include discussion replies
+      responses:
+        '200':
+          description: Successfully retrieved discussion content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  title:
+                    type: string
+                  content:
+                    type: string
+                  replies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        message:
+                          type: string
+                        postedAt:
+                          type: string
+                        userDisplayName:
+                          type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/assignments:
+    get:
+      operationId: getting_assignments
+      summary: Get assignments for a specific Canvas course
+      description: Retrieve all assignments in a specific Canvas course.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: includeSubmissions
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include submission information
+      responses:
+        '200':
+          description: Successfully retrieved assignments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  assignments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        dueAt:
+                          type: string
+                        pointsPossible:
+                          type: number
+                        submissionTypes:
+                          type: array
+                          items:
+                            type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/files:
+    get:
+      operationId: finding_files
+      summary: Find files in a Canvas course
+      description: Search for and retrieve files in a specific Canvas course.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: searchTerm
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional search term to filter files by name
+      responses:
+        '200':
+          description: Successfully retrieved files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        displayName:
+                          type: string
+                        filename:
+                          type: string
+                        contentType:
+                          type: string
+                        size:
+                          type: number
+                        url:
+                          type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/files/{fileId}:
+    get:
+      operationId: reading_file
+      summary: Read the content of a specific Canvas file
+      description: Retrieve and read the content of a specific Canvas file.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas file ID
+      responses:
+        '200':
+          description: Successfully retrieved file content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  fileName:
+                    type: string
+                  content:
+                    type: string
+                  contentType:
+                    type: string
+                  message:
+                    type: string
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - ApiKeyAuth: []
