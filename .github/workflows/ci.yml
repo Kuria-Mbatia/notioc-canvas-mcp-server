@@ -65,8 +65,9 @@ jobs:
     - name: Check for secrets
       run: |
         # Basic check for common secret patterns
-        if grep -r "canvas.*token.*=" . --exclude-dir=node_modules --exclude="*.md" --exclude=".env.example"; then
-          echo "Warning: Potential hardcoded tokens found"
+        SECRET_PATTERNS="(api_key|access_token|secret_key|password)\s*=\s*['\"][^'\"]{10,}"
+        if grep -rE "$SECRET_PATTERNS" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" --exclude=".env.example" --exclude="ci.yml"; then
+          echo "Warning: Potential hardcoded secrets found"
           exit 1
         fi
-        echo "No hardcoded tokens detected"
+        echo "No hardcoded secrets detected"
