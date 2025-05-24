@@ -14,6 +14,8 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 - **🔍 Content Extraction**: Read PDFs, documents, and text files with LlamaParse
 - **🔒 Secure Authentication**: Uses your Canvas API tokens for maximum privacy
 - **🤖 Privacy-First Design**: 100% local processing with Claude Desktop
+- **🚀 Enhanced Setup**: Intelligent config detection and comprehensive troubleshooting
+- **🛠️ Beginner-Friendly**: Step-by-step guidance with Terminal newcomer support
 
 ## 🚀 Quick Start
 
@@ -27,11 +29,13 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
 cd notioc-canvas-mcp-server
 
-# 2. Run production setup script
+# 2. Run enhanced production setup script
 ./setup.sh
 
 # 3. Restart Claude Desktop and test with: "What Canvas courses am I enrolled in?"
 ```
+
+> ✨ **New in v2.0**: Enhanced setup script with automatic Claude Desktop config detection, comprehensive troubleshooting, and beginner-friendly guidance!
 
 ### Manual Setup
 For local development with privacy-focused processing:
@@ -46,6 +50,28 @@ cp .env.example .env
 
 # 3. Configure Claude Desktop (see detailed instructions below)
 ```
+
+### What Makes Our Setup Special?
+
+🎯 **Smart Configuration Detection**
+- Automatically finds Claude Desktop config across different OS and installation types
+- Handles multiple potential config locations gracefully
+- Creates necessary directories with proper permissions
+
+🔍 **Enhanced Troubleshooting**
+- Detailed error messages with specific solutions
+- Real-time validation of Canvas API connectivity
+- Comprehensive system requirements checking
+
+🛡️ **Security Best Practices**
+- Recommends secure `.env` file usage over embedded credentials
+- Validates token formats and API connectivity
+- Automatic config file backups
+
+👥 **Beginner-Friendly Experience**
+- Terminal newcomer guidance and explanations
+- Step-by-step Canvas API token instructions
+- Clear next steps and success indicators
 
 # 3. Configure Claude Desktop
 # Follow steps in the Usage section below
@@ -105,18 +131,18 @@ LLAMA_CLOUD_API_KEY=your-llama-cloud-api-key-here
 
 ## 🔧 Available Tools
 
-The Notioc Canvas MCP Server provides 8 tools with simplified names:
+The Notioc Canvas MCP Server provides 8 tools with MCP-compliant names:
 
 | Tool Name | Description | Example Usage |
 |-----------|-------------|---------------|
-| `getting courses` | List your Canvas courses | "Show me my active courses" |
-| `getting pages` | Get pages in a course | "What pages are in my English course?" |
-| `reading page` | Read a specific page | "Read the syllabus page" |
-| `getting discussions` | List course discussions | "Show me the announcements" |
-| `reading discussion` | Read a discussion topic | "What's in the latest announcement?" |
-| `getting assignments` | Get course assignments | "What assignments do I have?" |
-| `finding files` | Search for course files | "Find all PDF files" |
-| `reading file` | Read file content | "Read the homework instructions" |
+| `get_courses` | List your Canvas courses | "Show me my active courses" |
+| `get_pages` | Get pages in a course | "What pages are in my English course?" |
+| `read_page` | Read a specific page | "Read the syllabus page" |
+| `get_discussions` | List course discussions | "Show me the announcements" |
+| `read_discussion` | Read a discussion topic | "What's in the latest announcement?" |
+| `get_assignments` | Get course assignments | "What assignments do I have?" |
+| `find_files` | Search for course files | "Find all PDF files" |
+| `read_file` | Read file content | "Read the homework instructions" |
 
 ### 5. Test the Server
 
@@ -178,10 +204,12 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/serve
 
 #### Step 4: Configure Claude Desktop
 
-**Locate your Claude Desktop config file:**
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+**The setup script automatically detects your Claude Desktop config location:**
+- **macOS**: Multiple potential locations checked automatically
+- **Windows**: Multiple AppData paths supported
+- **Linux**: XDG and local config directories supported
+
+> 💡 **Smart Detection**: The setup script now automatically finds your Claude Desktop configuration file across different versions and installation types.
 
 **Configuration Options:**
 
@@ -230,6 +258,8 @@ If successful, Claude will list your Canvas courses. If not, check the troublesh
 
 ### 🚨 Troubleshooting
 
+> 🔧 **Enhanced Diagnostics**: The setup script now provides detailed troubleshooting information and suggested solutions for common issues.
+
 #### Check Claude Desktop Logs
 ```bash
 # macOS - Check MCP logs
@@ -239,34 +269,78 @@ tail -f ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
 cat ~/Library/Logs/Claude/mcp-server-notioc-canvas.log | grep -i error
 ```
 
+#### Quick Diagnostic Commands
+```bash
+# Test MCP server directly
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/src/server.js
+
+# Verify Canvas API connection
+curl -H "Authorization: Bearer $CANVAS_ACCESS_TOKEN" "$CANVAS_BASE_URL/api/v1/courses"
+
+# Run comprehensive verification
+./verify.sh
+```
+
 #### Common Issues & Solutions
 
 1. **"Canvas configuration missing" error**
    ```bash
-   # Solution: Verify .env file exists and has correct format
-   cat .env
-   # Ensure no quotes around values and correct variable names
+   # The setup script now provides detailed Canvas token instructions
+   # Re-run setup if needed: ./setup.sh
+   cat .env  # Verify file exists and format is correct
    ```
 
 2. **"Server disconnected" error**
    ```bash
-   # Solution: Test server manually
+   # Enhanced error reporting shows exact server output
    cd /path/to/notioc-canvas-mcp-server
    echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
    ```
 
-3. **"Unexpected token" errors**
+3. **Claude Desktop config not found**
    ```bash
-   # Solution: Rebuild the server
-   npm run build
+   # Setup script now automatically detects multiple config locations
+   # Manual fallback if auto-detection fails:
+   ls -la "$HOME/Library/Application Support/Claude/"
+   ls -la "$HOME/Library/Application Support/Anthropic/"
    ```
 
-4. **Path-related errors**
+4. **Permission denied errors**
    ```bash
-   # Solution: Use absolute paths in Claude config
-   pwd  # Get current absolute path
-   # Update claude_desktop_config.json with absolute paths
+   # Setup script now checks and creates directories with proper permissions
+   # Manual fix if needed:
+   chmod +x setup.sh
+   chmod 755 dist/src/server.js
    ```
+
+5. **Environment variable loading issues**
+   ```bash
+   # Enhanced .env loading with explicit path resolution
+   # Verify .env is in project root:
+   ls -la .env
+   # Test environment loading:
+   node -e "require('dotenv').config(); console.log('CANVAS_BASE_URL:', process.env.CANVAS_BASE_URL ? 'SET' : 'NOT SET')"
+   ```
+
+#### Advanced Troubleshooting
+
+**Debug Mode:**
+```bash
+# Run setup with verbose output
+DEBUG=true ./setup.sh
+
+# Check all system requirements
+./setup.sh --check-only
+```
+
+**Config Validation:**
+```bash
+# Validate Claude Desktop config syntax
+cat ~/.../claude_desktop_config.json | jq '.'
+
+# Test MCP server in isolation
+node dist/src/server.js < /dev/null
+```
 
 #### Environment Variables Verification
 ```bash
@@ -280,6 +354,46 @@ node -e "require('dotenv').config(); console.log('CANVAS_BASE_URL:', process.env
 # Test Canvas API directly
 curl -H "Authorization: Bearer YOUR_TOKEN" \
   "https://your-institution.instructure.com/api/v1/courses"
+```
+
+#### Production Deployment Considerations
+
+**Performance Optimization:**
+- The server caches minimal data to respect Canvas API rate limits
+- File content extraction uses LlamaParse for Office documents
+- Large files are processed with timeout handling
+- Enhanced error reporting for faster debugging
+
+**Security Best Practices:**
+- Store API tokens in `.env` file, not in Claude config
+- Setup script recommends secure configuration options
+- Regularly rotate Canvas API tokens
+- Monitor Claude Desktop logs for unusual activity
+- Use the principle of least privilege for Canvas API tokens
+
+**Monitoring & Maintenance:**
+```bash
+# Check server health
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | jq '.result.tools | length'
+
+# Monitor log file size
+ls -lh ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
+
+# Run comprehensive system check
+./verify.sh
+
+# Clear large log files if needed
+echo > ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
+```
+
+**Backup & Recovery:**
+```bash
+# Backup your configuration
+cp .env .env.backup.$(date +%Y%m%d)
+cp ~/.../claude_desktop_config.json ~/claude_config_backup_$(date +%Y%m%d).json
+
+# Quick recovery test
+./setup.sh --verify-only
 ```
 
 ## 💬 Example Conversations
@@ -335,28 +449,6 @@ Retrieves the content of a specific file.
 - **Direct Integration**: Communicates directly with Canvas APIs
 - **Environment Variables**: API keys are stored safely in environment variables
 
-
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **"Canvas configuration missing" error**
-   - Ensure `.env` file exists with correct `CANVAS_BASE_URL` and `CANVAS_ACCESS_TOKEN`
-
-2. **"Access denied" errors**
-   - Verify your Canvas API token has the necessary permissions
-   - Check that you're enrolled in the course you're trying to access
-
-3. **"Course not found" errors**
-   - Ensure the course ID is correct
-   - Verify you have access to the specified course
-
-4. **File content not loading**
-   - Make sure your LlamaParse API key is correctly configured
-   - Large files may be truncated for performance
-   - Some file types may only provide metadata
-
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -377,63 +469,3 @@ MIT License - see LICENSE file for details.
 ---
 
 **Notioc Canvas MCP Server** - Bringing your Canvas courses to your AI assistant. 🎓✨
-
-3. **"Course not found" errors**
-   - Ensure the course ID is correct
-   - Verify you have access to the specified course
-
-### Debug Mode
-
-Enable debug logging by setting `DEBUG=true` in your `.env` file.
-
-### Testing Canvas Connection
-
-You can test your Canvas connection manually:
-
-```bash
-# Test API connection
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  "https://your-canvas-instance.instructure.com/api/v1/courses"
-```
-
-## Security Notes
-
-- Keep your Canvas API token secure and never share it
-- Use environment variables for configuration
-- Regularly rotate your API tokens
-- Review Canvas API permissions for your tokens
-
-## Development
-
-### Project Structure
-
-```
-mcp-server/
-├── src/
-│   └── server.ts          # Main MCP server
-├── lib/
-│   └── canvas-api.ts      # Canvas API integration
-├── tools/
-│   ├── courses.ts         # Course management tools
-│   ├── assignments.ts     # Assignment tools
-│   └── files.ts          # File system tools
-├── config/
-├── examples/
-└── package.json
-```
-
-### Building
-
-```bash
-npm run build    # Compile TypeScript
-npm run dev      # Development mode with file watching
-npm test         # Run tests (when available)
-```
-
-## Support
-
-For support and documentation, visit the [GitHub repository](https://github.com/notioc/canvas-mcp-server).
-
-## License
-
-MIT License - see LICENSE file for details.

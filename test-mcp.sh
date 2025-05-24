@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 # Test 1: Check if server builds and responds
 echo "1. Testing server response..."
-if echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | grep -q "getting courses"; then
+if echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | grep -q "get_courses"; then
     echo "   ✅ Server responds correctly"
 else
     echo "   ❌ Server not responding correctly"
@@ -16,7 +16,7 @@ fi
 
 # Test 2: Check Canvas API connection
 echo "2. Testing Canvas API connection..."
-if echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "getting courses", "arguments": {}}}' | node dist/src/server.js 2>/dev/null | grep -q 'courses'; then
+if echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_courses", "arguments": {}}}' | node dist/src/server.js 2>/dev/null | grep -q 'courses'; then
     echo "   ✅ Canvas API connection successful"
 else
     echo "   ❌ Canvas API connection failed"

@@ -75,7 +75,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: 'getting courses',
+        name: 'get_courses',
         description: 'Get your Canvas courses for the authenticated user',
         inputSchema: {
           type: 'object',
@@ -90,7 +90,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'getting pages',
+        name: 'get_pages',
         description: 'Get pages in a Canvas course',
         inputSchema: {
           type: 'object',
@@ -120,7 +120,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'reading page',
+        name: 'read_page',
         description: 'Read the content of a specific Canvas page',
         inputSchema: {
           type: 'object',
@@ -142,7 +142,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'getting discussions',
+        name: 'get_discussions',
         description: 'Get discussion topics in a Canvas course',
         inputSchema: {
           type: 'object',
@@ -171,7 +171,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'reading discussion',
+        name: 'read_discussion',
         description: 'Read the content of a specific Canvas discussion topic',
         inputSchema: {
           type: 'object',
@@ -194,7 +194,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'getting assignments',
+        name: 'get_assignments',
         description: 'Get assignments for a specific Canvas course',
         inputSchema: {
           type: 'object',
@@ -213,7 +213,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'finding files',
+        name: 'find_files',
         description: 'Find files in a Canvas course',
         inputSchema: {
           type: 'object',
@@ -231,7 +231,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'reading file',
+        name: 'read_file',
         description: 'Read the content of a specific Canvas file',
         inputSchema: {
           type: 'object',
@@ -266,7 +266,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const config = getCanvasConfig();
 
     switch (name) {
-      case 'getting courses': {
+      case 'get_courses': {
         const params: CourseListParams = {
           canvasBaseUrl: config.baseUrl,
           accessToken: config.accessToken,
@@ -289,7 +289,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'getting assignments': {
+      case 'get_assignments': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -317,7 +317,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'finding files': {
+      case 'find_files': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -345,7 +345,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'reading file': {
+      case 'read_file': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -383,7 +383,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'getting pages': {
+      case 'get_pages': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -413,7 +413,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'reading page': {
+      case 'read_page': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -450,7 +450,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'getting discussions': {
+      case 'get_discussions': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -480,7 +480,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'reading discussion': {
+      case 'read_discussion': {
         if (!(args as any)?.courseId) {
           throw new McpError(ErrorCode.InvalidParams, 'courseId is required');
         }
@@ -502,7 +502,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [
             {
-              type: 'text',                text: JSON.stringify({
+              type: 'text',
+              text: JSON.stringify({
                 success: !result.error,
                 title: result.title,
                 content: result.message,

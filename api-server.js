@@ -101,7 +101,7 @@ async function callMCPTool(toolName, params = {}) {
 app.get('/api/courses', async (req, res) => {
   try {
     const { enrollmentState = 'active' } = req.query;
-    const result = await callMCPTool('getting courses', { enrollmentState });
+    const result = await callMCPTool('get_courses', { enrollmentState });
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -114,7 +114,7 @@ app.get('/api/courses/:courseId/pages', async (req, res) => {
     const { courseId } = req.params;
     const { sort, order, searchTerm } = req.query;
     
-    const result = await callMCPTool('getting pages', {
+    const result = await callMCPTool('get_pages', {
       courseId,
       sort,
       order,
@@ -131,7 +131,7 @@ app.get('/api/courses/:courseId/pages/:pageId', async (req, res) => {
   try {
     const { courseId, pageId } = req.params;
     
-    const result = await callMCPTool('reading page', {
+    const result = await callMCPTool('read_page', {
       courseId,
       pageUrl: pageId // Using pageUrl parameter
     });
@@ -147,7 +147,7 @@ app.get('/api/courses/:courseId/discussions', async (req, res) => {
     const { courseId } = req.params;
     const { onlyAnnouncements, orderBy, searchTerm } = req.query;
     
-    const result = await callMCPTool('getting discussions', {
+    const result = await callMCPTool('get_discussions', {
       courseId,
       onlyAnnouncements: onlyAnnouncements === 'true',
       orderBy,
@@ -165,7 +165,7 @@ app.get('/api/courses/:courseId/discussions/:discussionId', async (req, res) => 
     const { courseId, discussionId } = req.params;
     const { includeReplies } = req.query;
     
-    const result = await callMCPTool('reading discussion', {
+    const result = await callMCPTool('read_discussion', {
       courseId,
       discussionId,
       includeReplies: includeReplies !== 'false'
@@ -182,7 +182,7 @@ app.get('/api/courses/:courseId/assignments', async (req, res) => {
     const { courseId } = req.params;
     const { includeSubmissions } = req.query;
     
-    const result = await callMCPTool('getting assignments', {
+    const result = await callMCPTool('get_assignments', {
       courseId,
       includeSubmissions: includeSubmissions === 'true'
     });
@@ -198,7 +198,7 @@ app.get('/api/courses/:courseId/files', async (req, res) => {
     const { courseId } = req.params;
     const { searchTerm } = req.query;
     
-    const result = await callMCPTool('finding files', {
+    const result = await callMCPTool('find_files', {
       courseId,
       searchTerm
     });
@@ -213,7 +213,7 @@ app.get('/api/courses/:courseId/files/:fileId', async (req, res) => {
   try {
     const { courseId, fileId } = req.params;
     
-    const result = await callMCPTool('reading file', {
+    const result = await callMCPTool('read_file', {
       courseId,
       fileId
     });

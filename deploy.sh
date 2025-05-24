@@ -53,7 +53,7 @@ echo ""
 
 # Test MCP server
 echo "🧪 Testing MCP server..."
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | grep -q "getting courses"
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | grep -q "get_courses"
 
 if [ $? -eq 0 ]; then
     echo "✅ MCP server is working"

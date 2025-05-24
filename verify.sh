@@ -57,7 +57,7 @@ fi
 echo ""
 echo "🧪 Testing MCP server functionality..."
 MCP_OUTPUT=$(echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js 2>/dev/null)
-if echo "$MCP_OUTPUT" | grep -q "getting courses"; then
+if echo "$MCP_OUTPUT" | grep -q "get_courses"; then
     echo "✅ MCP server working - found 8 tools"
     # Count tools
     TOOL_COUNT=$(echo "$MCP_OUTPUT" | grep -o '"name":"[^"]*"' | wc -l)
