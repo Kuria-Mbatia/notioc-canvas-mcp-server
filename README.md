@@ -37,6 +37,8 @@ cd notioc-canvas-mcp-server
 
 > ✨ **New in v2.0**: Enhanced setup script with automatic Claude Desktop config detection, comprehensive troubleshooting, and beginner-friendly guidance!
 
+> 🔧 **No Node.js?** The setup script will detect if Node.js is missing and provide OS-specific installation instructions to get you started quickly.
+
 ### Manual Setup
 For local development with privacy-focused processing:
 
@@ -81,10 +83,84 @@ cp .env.example .env
 
 ### 1. Prerequisites
 
-- Node.js 18+ installed
-- Canvas LMS access with API token  
-- Claude Desktop application
-- LlamaParse API key for document content extraction
+**System Requirements:**
+- **Node.js 18+**: JavaScript runtime for the MCP server
+- **Canvas LMS access**: With API token generation permissions
+- **Claude Desktop**: Latest version installed
+- **LlamaParse API key**: For document content extraction (optional)
+
+**🚀 First Time? No Problem!**
+> Our setup script automatically checks for Node.js and provides installation guidance if needed. Just run `./setup.sh` and follow the prompts!
+
+#### Installing Node.js (For Beginners)
+
+**🎯 Easiest Method: Official Installer**
+1. Visit [nodejs.org](https://nodejs.org/)
+2. Download the **LTS (Long Term Support)** version
+3. Run the installer and follow the prompts
+4. Works on Windows, macOS, and Linux
+
+**Alternative Methods:**
+
+<details>
+<summary>📱 macOS Installation Options</summary>
+
+```bash
+# Option 1: Homebrew (if you have it)
+brew install node
+
+# Option 2: MacPorts (if you have it)
+sudo port install nodejs18
+
+# Option 3: Node Version Manager (for developers)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+```
+</details>
+
+<details>
+<summary>🐧 Linux Installation Options</summary>
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install nodejs npm
+
+# RHEL/CentOS/Fedora
+sudo dnf install nodejs npm
+
+# Arch Linux
+sudo pacman -S nodejs npm
+
+# Using Node Version Manager
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+```
+</details>
+
+<details>
+<summary>🪟 Windows Installation Options</summary>
+
+```bash
+# Official installer (recommended)
+# Download from https://nodejs.org/
+
+# Chocolatey package manager
+choco install nodejs
+
+# Winget package manager
+winget install OpenJS.NodeJS
+
+# Node Version Manager for Windows
+# Visit: https://github.com/coreybutler/nvm-windows
+```
+</details>
+
+**Verify Installation:**
+```bash
+# Check if Node.js is installed
+node --version
+
+# Check if npm is available
+npm --version
+```
 
 ### 2. Installation
 

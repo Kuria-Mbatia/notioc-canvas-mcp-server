@@ -23,22 +23,75 @@ NC='\033[0m' # No Color
 # Pre-flight system checks
 echo -e "${YELLOW}🔍 Step 0: System Requirements Check${NC}"
 
-# Check Node.js version
-if ! command -v node &> /dev/null; then
-    echo -e "${RED}❌ Node.js is not installed${NC}"
-    echo "Please install Node.js from https://nodejs.org/ (version 18 or higher)"
-    exit 1
-fi
+# Enhanced Node.js detection and installation guidance
+check_nodejs_installation() {
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}❌ Node.js is not installed${NC}"
+        echo ""
+        echo -e "${BLUE}📦 Node.js Installation Guide:${NC}"
+        echo ""
+        echo -e "${GREEN}🎯 Recommended (Easiest): Visit https://nodejs.org${NC}"
+        echo "   • Download the ${YELLOW}LTS version${NC} (Long Term Support)"
+        echo "   • Run the installer and follow the prompts"
+        echo "   • This works on all operating systems"
+        echo ""
+        echo -e "${BLUE}Alternative Installation Methods:${NC}"
+        
+        # Detect OS and provide specific instructions
+        case "$(uname -s)" in
+            Darwin*)    # macOS
+                echo -e "${GREEN}For macOS:${NC}"
+                echo "• 🍺 Homebrew: ${YELLOW}brew install node${NC}"
+                echo "• 📦 MacPorts: ${YELLOW}sudo port install nodejs18${NC}"
+                echo "• 🔧 Node Version Manager: ${YELLOW}curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash${NC}"
+                ;;
+            Linux*)     # Linux
+                echo -e "${GREEN}For Linux:${NC}"
+                echo "• 📦 Ubuntu/Debian: ${YELLOW}sudo apt update && sudo apt install nodejs npm${NC}"
+                echo "• 📦 RHEL/CentOS/Fedora: ${YELLOW}sudo dnf install nodejs npm${NC}"
+                echo "• 📦 Arch Linux: ${YELLOW}sudo pacman -S nodejs npm${NC}"
+                echo "• 🔧 Node Version Manager: ${YELLOW}curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash${NC}"
+                ;;
+            CYGWIN*|MINGW*|MSYS*)    # Windows
+                echo -e "${GREEN}For Windows:${NC}"
+                echo "• 🍫 Chocolatey: ${YELLOW}choco install nodejs${NC}"
+                echo "• 📦 Winget: ${YELLOW}winget install OpenJS.NodeJS${NC}"
+                echo "• 🔧 Node Version Manager: ${YELLOW}https://github.com/coreybutler/nvm-windows${NC}"
+                ;;
+        esac
+        
+        echo ""
+        echo -e "${YELLOW}💡 Why Node.js?${NC}"
+        echo "   Node.js is needed to run the MCP server that connects Claude to Canvas."
+        echo "   It's like installing a translator so Claude can understand Canvas data."
+        echo ""
+        echo -e "${BLUE}After installing Node.js:${NC}"
+        echo "1. Close and reopen your terminal"
+        echo "2. Run this setup script again: ${YELLOW}./setup.sh${NC}"
+        echo "3. You should see a version number: ${YELLOW}node --version${NC}"
+        echo ""
+        echo -e "${GREEN}Need help? Check our detailed guide in README.md!${NC}"
+        exit 1
+    fi
+    
+    # Check Node.js version
+    NODE_VERSION=$(node --version | sed 's/v//')
+    MIN_VERSION="18.0.0"
+    if [ "$(printf '%s\n' "$MIN_VERSION" "$NODE_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
+        echo -e "${RED}❌ Node.js version $NODE_VERSION is too old (minimum: $MIN_VERSION)${NC}"
+        echo ""
+        echo -e "${YELLOW}📥 Please update Node.js:${NC}"
+        echo "• Visit https://nodejs.org/ and download the latest LTS version"
+        echo "• Or update via your package manager"
+        echo ""
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Node.js version $NODE_VERSION (compatible)${NC}"
+}
 
-NODE_VERSION=$(node --version | sed 's/v//')
-MIN_VERSION="18.0.0"
-if [ "$(printf '%s\n' "$MIN_VERSION" "$NODE_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
-    echo -e "${RED}❌ Node.js version $NODE_VERSION is too old (minimum: $MIN_VERSION)${NC}"
-    echo "Please update Node.js from https://nodejs.org/"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ Node.js version $NODE_VERSION (compatible)${NC}"
+# Run Node.js check
+check_nodejs_installation
 
 # Check npm
 if ! command -v npm &> /dev/null; then
