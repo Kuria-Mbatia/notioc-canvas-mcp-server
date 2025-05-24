@@ -19,6 +19,21 @@ A Model Context Protocol (MCP) server that provides AI assistants with access to
 
 ### Claude Desktop Integration
 
+## 🚀 Quick Start
+
+### Automated Setup (Recommended)
+```bash
+# 1. Clone and enter directory
+git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
+cd notioc-canvas-mcp-server
+
+# 2. Run production setup script
+./setup.sh
+
+# 3. Restart Claude Desktop and test with: "What Canvas courses am I enrolled in?"
+```
+
+### Manual Setup
 For local development with privacy-focused processing:
 
 ```bash
@@ -28,6 +43,9 @@ npm install && npm run build
 # 2. Configure .env file
 cp .env.example .env
 # Edit .env with your Canvas API token and LlamaParse API key
+
+# 3. Configure Claude Desktop (see detailed instructions below)
+```
 
 # 3. Configure Claude Desktop
 # Follow steps in the Usage section below
@@ -112,33 +130,157 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/serve
 
 ## 📝 Usage with Claude Desktop
 
-### Setting up Claude Desktop Integration
+### Production-Level Setup Guide
 
-1. **Configure Claude**: Add to your `claude_desktop_config.json`:
+#### Step 1: Complete Installation & Build
+```bash
+# Ensure you're in the project directory
+cd /path/to/notioc-canvas-mcp-server
+
+# Install dependencies
+npm install
+
+# Build the TypeScript code
+npm run build
+
+# Verify build completed successfully
+ls -la dist/src/server.js
+```
+
+#### Step 2: Configure Environment Variables
+
+**Option A: Using .env file (Recommended)**
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env with your credentials
+nano .env  # or use your preferred editor
+```
+
+Your `.env` file should contain:
+```env
+CANVAS_BASE_URL=https://your-institution.instructure.com
+CANVAS_ACCESS_TOKEN=your_canvas_api_token_here
+LLAMA_CLOUD_API_KEY=your_llama_cloud_api_key_here
+```
+
+**Option B: Direct environment variables in Claude config**
+If you prefer to set environment variables directly in the Claude configuration (less secure but more explicit).
+
+#### Step 3: Test the MCP Server
+```bash
+# Test server functionality
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
+
+# Should return a JSON response with available tools
+```
+
+#### Step 4: Configure Claude Desktop
+
+**Locate your Claude Desktop config file:**
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+**Configuration Options:**
+
+**Option A: Using .env file (Most Secure)**
 ```json
 {
   "mcpServers": {
     "notioc-canvas": {
       "command": "node",
-      "args": ["/absolute/path/to/canvas-mcp-server/dist/src/server.js"],
+      "args": ["/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server/dist/src/server.js"],
+      "cwd": "/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server"
+    }
+  }
+}
+```
+
+**Option B: Environment variables in config (Less Secure)**
+```json
+{
+  "mcpServers": {
+    "notioc-canvas": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server/dist/src/server.js"],
+      "cwd": "/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server",
       "env": {
-        "CANVAS_BASE_URL": "https://your-canvas-instance.instructure.com",
-        "CANVAS_ACCESS_TOKEN": "your-token-here",
-        "LLAMA_CLOUD_API_KEY": "your-llama-cloud-api-key-here"
+        "CANVAS_BASE_URL": "https://your-institution.instructure.com",
+        "CANVAS_ACCESS_TOKEN": "your_canvas_api_token_here",
+        "LLAMA_CLOUD_API_KEY": "your_llama_cloud_api_key_here"
       }
     }
   }
 }
 ```
 
-2. **Locate your Claude Desktop config file**:
-   - On macOS: `~/Library/Application Support/Anthropic/claude/claude_desktop_config.json`
-   - On Windows: `%APPDATA%\Anthropic\claude\claude_desktop_config.json`
-   - On Linux: `~/.config/Anthropic/claude/claude_desktop_config.json`
+⚠️ **IMPORTANT**: Replace `/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server` with the actual absolute path to your installation.
 
-3. **Create or edit this file** with the configuration above, replacing paths and API tokens with your own values.
+#### Step 5: Restart Claude Desktop
+1. **Completely close** Claude Desktop
+2. **Reopen** Claude Desktop
+3. **Wait 10-15 seconds** for the MCP server to initialize
 
-4. **Restart Claude Desktop** to apply the changes.
+#### Step 6: Verify Integration
+Ask Claude: **"What Canvas courses am I enrolled in?"**
+
+If successful, Claude will list your Canvas courses. If not, check the troubleshooting section below.
+
+### 🚨 Troubleshooting
+
+#### Check Claude Desktop Logs
+```bash
+# macOS - Check MCP logs
+tail -f ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
+
+# Look for errors in the logs
+cat ~/Library/Logs/Claude/mcp-server-notioc-canvas.log | grep -i error
+```
+
+#### Common Issues & Solutions
+
+1. **"Canvas configuration missing" error**
+   ```bash
+   # Solution: Verify .env file exists and has correct format
+   cat .env
+   # Ensure no quotes around values and correct variable names
+   ```
+
+2. **"Server disconnected" error**
+   ```bash
+   # Solution: Test server manually
+   cd /path/to/notioc-canvas-mcp-server
+   echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
+   ```
+
+3. **"Unexpected token" errors**
+   ```bash
+   # Solution: Rebuild the server
+   npm run build
+   ```
+
+4. **Path-related errors**
+   ```bash
+   # Solution: Use absolute paths in Claude config
+   pwd  # Get current absolute path
+   # Update claude_desktop_config.json with absolute paths
+   ```
+
+#### Environment Variables Verification
+```bash
+# Test environment loading
+cd /path/to/notioc-canvas-mcp-server
+node -e "require('dotenv').config(); console.log('CANVAS_BASE_URL:', process.env.CANVAS_BASE_URL ? 'SET' : 'NOT SET')"
+```
+
+#### Manual Canvas API Test
+```bash
+# Test Canvas API directly
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  "https://your-institution.instructure.com/api/v1/courses"
+```
 
 ## 💬 Example Conversations
 

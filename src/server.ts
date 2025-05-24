@@ -26,9 +26,16 @@ import {
 
 // Import custom logger that writes to stderr
 import { logger } from '../lib/logger.js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Load environment variables
-dotenv.config();
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, '../..');
+
+// Load environment variables with explicit path
+dotenv.config({ path: join(projectRoot, '.env') });
 
 // Configuration interface
 interface CanvasConfig {
