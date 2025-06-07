@@ -1,73 +1,165 @@
 // MCP Tool: List Canvas Assignments
 // Adapted from /app/api/canvas-assignments/route.ts
 
-import { callCanvasAPI, CanvasAssignment } from '../lib/canvas-api.js';
+import { listCourses } from './courses.js';
+import { findBestMatch } from '../lib/search.js';
+import { fetchAllPaginated, CanvasAssignment } from '../lib/pagination.js';
 
 export interface AssignmentListParams {
   canvasBaseUrl: string;
   accessToken: string;
-  courseId: string;
+  courseId?: string;
+  courseName?: string;
   includeSubmissions?: boolean;
 }
 
 export interface AssignmentInfo {
   id: string;
   name: string;
-  description?: string;
-  dueAt?: string;
-  pointsPossible?: number;
-  submissionTypes?: string[];
-  workflowState?: string;
-  htmlUrl?: string;
+  description: string;
+  dueAt: string | null;
+  pointsPossible: number;
+  submissionTypes: string[];
+  workflowState: string;
+  htmlUrl: string;
   hasSubmittedSubmissions?: boolean;
+  attachments?: Array<{
+    id: string;
+    filename: string;
+    url: string;
+    contentType: string;
+  }>;
+  embeddedFileLinks?: Array<{
+    id: string;
+    url: string;
+    text: string;
+  }>;
+}
+
+// Extract file links from HTML content
+function extractFileLinks(htmlContent: string, canvasBaseUrl: string): Array<{id: string, url: string, text: string}> {
+  if (!htmlContent) return [];
+  
+  const links: Array<{id: string, url: string, text: string}> = [];
+  
+  // Enhanced regex patterns to find various Canvas file link formats
+  const patterns = [
+    // Standard href links: href="/courses/XXXX/files/YYYY" or href="/files/YYYY"
+    /href="([^"]*(?:\/courses\/\d+)?\/files\/(\d+)[^"]*)">([^<]*)</g,
+    
+    // Direct Canvas file URLs in text: https://domain.instructure.com/courses/XXXX/files/YYYY
+    /https?:\/\/[^\/]+\.instructure\.com\/courses\/\d+\/files\/(\d+)/g,
+    
+    // File URLs without full domain: /courses/XXXX/files/YYYY
+    /\/courses\/\d+\/files\/(\d+)/g,
+    
+    // Simple file references: files/YYYY
+    /files\/(\d+)/g
+  ];
+  
+  patterns.forEach((regex, index) => {
+    let match;
+    while ((match = regex.exec(htmlContent)) !== null) {
+      if (index === 0) {
+        // Full href pattern with link text
+        const [, fullUrl, fileId, linkText] = match;
+        const completeUrl = fullUrl.startsWith('http') ? fullUrl : `${canvasBaseUrl}${fullUrl}`;
+        links.push({
+          id: fileId,
+          url: completeUrl,
+          text: linkText.trim()
+        });
+      } else {
+        // Other patterns - just file ID
+        const fileId = match[1];
+        links.push({
+          id: fileId,
+          url: `${canvasBaseUrl}/files/${fileId}`,
+          text: `File ${fileId}`
+        });
+      }
+    }
+  });
+  
+  // Remove duplicates based on file ID
+  const uniqueLinks = links.filter((link, index, self) => 
+    index === self.findIndex(l => l.id === link.id)
+  );
+  
+  return uniqueLinks;
 }
 
 export async function listAssignments(params: AssignmentListParams): Promise<AssignmentInfo[]> {
-  const { canvasBaseUrl, accessToken, courseId, includeSubmissions = false } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, includeSubmissions = false } = params;
 
-  if (!canvasBaseUrl || !accessToken || !courseId) {
-    throw new Error('Missing required parameters: Canvas URL, Access Token, or Course ID');
+  if (!canvasBaseUrl || !accessToken) {
+    throw new Error('Missing Canvas URL or Access Token');
+  }
+
+  if (!courseId && !courseName) {
+    throw new Error('Either courseId or courseName must be provided');
   }
 
   try {
+    // If courseName is provided, find the courseId first
+    if (courseName && !courseId) {
+      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
+      if (courses.length === 0) {
+        throw new Error('No courses found for this user.');
+      }
+      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+
+      if (!matchedCourse) {
+        throw new Error(`Could not find a course matching "${courseName}".`);
+      }
+      courseId = matchedCourse.id;
+    }
+
     const apiPath = `/api/v1/courses/${courseId}/assignments`;
 
-    // Build query parameters
-    const queryParams: Record<string, string> = {
-      per_page: '100'
+    // Build query parameters - include attachments and description
+    const queryParams: Record<string, any> = {
+      per_page: '100',
+      include: ['attachments']
     };
-    
     if (includeSubmissions) {
-      queryParams.include = 'submission';
+      queryParams.include.push('submission');
     }
 
-    const canvasResponse = await callCanvasAPI({
+    const assignmentsData = await fetchAllPaginated<CanvasAssignment>(
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
       apiPath,
-      params: queryParams
+      queryParams
+    );
+
+    // Map to the structure needed by MCP with enhanced file discovery
+    const assignments: AssignmentInfo[] = assignmentsData.map(assignment => {
+      // Extract embedded file links from description
+      const embeddedFileLinks = extractFileLinks(assignment.description || '', canvasBaseUrl);
+      
+      // Process attachments
+      const attachments = assignment.attachments?.map(att => ({
+        id: String(att.id),
+        filename: att.filename,
+        url: att.url,
+        contentType: att['content-type'] || att.content_type || 'unknown'
+      })) || [];
+
+      return {
+        id: String(assignment.id),
+        name: assignment.name || `Assignment ${assignment.id}`,
+        description: assignment.description,
+        dueAt: assignment.due_at,
+        pointsPossible: assignment.points_possible,
+        submissionTypes: assignment.submission_types,
+        workflowState: assignment.workflow_state,
+        htmlUrl: assignment.html_url,
+        hasSubmittedSubmissions: assignment.has_submitted_submissions,
+        attachments,
+        embeddedFileLinks
+      };
     });
-
-    if (!canvasResponse.ok) {
-      const errorText = await canvasResponse.text();
-      throw new Error(`Canvas API Error (${canvasResponse.status}): ${errorText}`);
-    }
-
-    const assignmentsData: CanvasAssignment[] = await canvasResponse.json();
-
-    // Map to the structure needed by MCP
-    const assignments: AssignmentInfo[] = assignmentsData.map(assignment => ({
-      id: String(assignment.id),
-      name: assignment.name || `Assignment ${assignment.id}`,
-      description: assignment.description,
-      dueAt: assignment.due_at,
-      pointsPossible: assignment.points_possible,
-      submissionTypes: assignment.submission_types,
-      workflowState: assignment.workflow_state,
-      htmlUrl: assignment.html_url,
-      hasSubmittedSubmissions: assignment.has_submitted_submissions,
-    }));
 
     return assignments;
   } catch (error) {
@@ -77,4 +169,49 @@ export async function listAssignments(params: AssignmentListParams): Promise<Ass
       throw new Error('Failed to fetch assignments: Unknown error');
     }
   }
+}
+
+// New function to get a specific assignment with all its files
+export async function getAssignmentWithFiles(params: {
+  canvasBaseUrl: string;
+  accessToken: string;
+  courseId?: string;
+  courseName?: string;
+  assignmentName: string;
+}): Promise<AssignmentInfo & { allFiles: Array<{id: string, name: string, url: string, source: string}> }> {
+  
+  const assignments = await listAssignments(params);
+  const assignment = findBestMatch(params.assignmentName, assignments, ['name']);
+  
+  if (!assignment) {
+    throw new Error(`Could not find assignment matching "${params.assignmentName}"`);
+  }
+
+  // Combine all files from attachments and embedded links
+  const allFiles: Array<{id: string, name: string, url: string, source: string}> = [];
+  
+  // Add attachments
+  assignment.attachments?.forEach(att => {
+    allFiles.push({
+      id: att.id,
+      name: att.filename,
+      url: att.url,
+      source: 'attachment'
+    });
+  });
+  
+  // Add embedded file links
+  assignment.embeddedFileLinks?.forEach(link => {
+    allFiles.push({
+      id: link.id,
+      name: link.text || `File ${link.id}`,
+      url: link.url,
+      source: 'embedded'
+    });
+  });
+
+  return {
+    ...assignment,
+    allFiles
+  };
 }

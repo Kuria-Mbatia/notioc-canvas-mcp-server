@@ -1,42 +1,72 @@
-// MCP Tool: Canvas Files Search and Content Retrieval
-// Adapted from /app/api/canvas-files/route.ts and /app/api/canvas-file-content/route.ts
+// MCP Tool: Canvas File Search & Retrieval
+// Adapted from /app/api/canvas-files/route.ts
 
-import { callCanvasAPI, CanvasFile, CanvasModule, CanvasModuleItem } from '../lib/canvas-api.js';
-import { logger } from '../lib/logger.js';
+import { fetchAllPaginated, CanvasFile } from '../lib/pagination.js';
+import { findBestMatch } from '../lib/search.js';
+import { listCourses } from './courses.js';
+import Fuse from 'fuse.js';
+import { createRequire } from 'module';
 
-// Dynamically import pdf-parse to avoid test file issues
+// PDF parsing function - use require to avoid debug mode issues
 let pdfParse: any = null;
-async function getPdfParse() {
-  if (!pdfParse) {
-    try {
-      pdfParse = (await import('pdf-parse')).default;
-    } catch (error) {
-      logger.warn('pdf-parse not available:', error);
-      return null;
+let pdfLoadAttempted = false;
+
+async function initializePdfParse() {
+  if (pdfParse) return pdfParse;
+  
+  try {
+    // Suppress the loading message to keep progress bar clean
+    // console.log('🔍 Loading pdf-parse via require...');
+    
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    pdfParse = require('pdf-parse');
+    
+    // Suppress the success message to keep progress bar clean  
+    // console.log('📄 PDF parsing enabled');
+    return pdfParse;
+  } catch (error) {
+    console.error('❌ Could not load pdf-parse:', error);
+    return null;
+  }
+}
+
+// Calculate a basic similarity score
+function calculateSimilarity(searchTerm: string, text: string): number {
+  if (!searchTerm || !text) return 0;
+
+  const search = searchTerm.toLowerCase();
+  const target = text.toLowerCase();
+
+  if (target.includes(search)) {
+    return 0.8;
+  }
+
+  const searchWords = search.split(/\s+/);
+  const targetWords = target.split(/[\s._-]+/);
+  let matchingWords = 0;
+  for (const sword of searchWords) {
+    if (targetWords.some(tword => tword.includes(sword))) {
+      matchingWords++;
     }
   }
-  return pdfParse;
-}
-
-// LlamaParse API configuration for Office document processing
-const LLAMA_CLOUD_API_KEY = process.env.LLAMA_CLOUD_API_KEY;
-const LLAMA_CLOUD_BASE_URL = "https://api.cloud.llamaindex.ai/api/parsing";
-
-// LlamaParse API interfaces
-interface LlamaParseUploadResponse {
-  id: string; // Job ID
-}
-
-interface LlamaParseJobStatusResponse {
-  id: string;
-  status: string; // "PENDING", "SUCCESS", "ERROR", etc.
+  return matchingWords / searchWords.length * 0.6;
 }
 
 export interface FileSearchParams {
   canvasBaseUrl: string;
   accessToken: string;
-  courseId: string;
+  courseId?: string;
+  courseName?: string;
   searchTerm?: string;
+}
+
+export interface FileInfo {
+  id: string;
+  name: string;
+  url: string;
+  moduleName: string | null;
+  similarity?: number; // Added for search results
 }
 
 export interface FileContentParams {
@@ -47,185 +77,102 @@ export interface FileContentParams {
   fileName?: string;
 }
 
-export interface FileInfo {
-  id: string;
-  displayName: string;
-  filename: string;
-  contentType: string;
-  size: number;
-  createdAt: string;
-  updatedAt: string;
-  url: string;
-  thumbnailUrl?: string;
-  folderId?: string;
-  similarity?: number; // For search results
-}
-
-export interface FileContentResult {
-  fileName: string;
-  content: string;
-  contentType: string;
-  error?: string;
-}
-
-// Similarity scoring function for file search
-function calculateSimilarity(searchTerm: string, fileName: string): number {
-  if (!searchTerm) return 0;
-  
-  const search = searchTerm.toLowerCase();
-  const file = fileName.toLowerCase();
-  
-  // Exact match
-  if (file === search) return 1.0;
-  
-  // Contains search term
-  if (file.includes(search)) return 0.8;
-  
-  // Word-based matching
-  const searchWords = search.split(/\s+/);
-  const fileWords = file.split(/[\s._-]+/);
-  
-  let matchingWords = 0;
-  for (const searchWord of searchWords) {
-    for (const fileWord of fileWords) {
-      if (fileWord.includes(searchWord) || searchWord.includes(fileWord)) {
-        matchingWords++;
-        break;
-      }
-    }
-  }
-  
-  return matchingWords / searchWords.length * 0.6;
-}
-
 // Search for files in a Canvas course
 export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]> {
-  const { canvasBaseUrl, accessToken, courseId, searchTerm } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, searchTerm } = params;
 
-  if (!canvasBaseUrl || !accessToken || !courseId) {
-    throw new Error('Missing required parameters');
+  if (!canvasBaseUrl || !accessToken) {
+    throw new Error('Missing Canvas URL or Access Token');
+  }
+
+  if (!courseId && !courseName) {
+    throw new Error('Either courseId or courseName must be provided');
   }
 
   try {
-    // Initialize with an empty array in case we can't access files directly
-    let filesData: CanvasFile[] = [];
-    
-    try {
-      // Get files from the course files folder - but don't fail if this doesn't work
-      const filesResponse = await callCanvasAPI({
-        canvasBaseUrl,
-        accessToken,
-        method: 'GET',
-        apiPath: `/api/v1/courses/${courseId}/files`,
-        params: { per_page: '100' },
-      });
-
-      if (filesResponse.ok) {
-        filesData = await filesResponse.json();
-        logger.info(`Retrieved ${filesData.length} files from course files endpoint`);
-      } else {
-        // Suppress error and continue using modules
-        logger.info(`Could not access course files directly (${filesResponse.status}), will use modules only`);
+    // If courseName is provided, find the courseId first
+    if (courseName && !courseId) {
+      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
+      if (courses.length === 0) {
+        throw new Error('No courses found for this user.');
       }
-    } catch (error) {
-      // Suppress error and continue using modules
-      logger.info('Error accessing course files directly, will use modules only:', error);
+      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+
+      if (!matchedCourse) {
+        throw new Error(`Could not find a course matching "${courseName}".`);
+      }
+      courseId = matchedCourse.id;
     }
 
-    // Also get files from course modules - this is more reliable with student permissions
-    let moduleFiles: CanvasFile[] = [];
+    // Initialize with an empty array in case we can't access files directly
+    let allFiles: FileInfo[] = [];
+
+    // 1. Get files from the "Files" tab
     try {
-      const modulesResponse = await callCanvasAPI({
+      const filesData = await fetchAllPaginated<CanvasFile>(
         canvasBaseUrl,
         accessToken,
-        method: 'GET',
-        apiPath: `/api/v1/courses/${courseId}/modules`,
-        params: { include: 'items', per_page: '100' },
-      });
+        `/api/v1/courses/${courseId}/files`,
+        { per_page: '100' }
+      );
+      allFiles.push(...filesData.map(file => ({
+        id: String(file.id),
+        name: file.display_name,
+        url: file.url,
+        moduleName: 'Course Files', // Assign a default module name
+      })));
+    } catch (e) {
+      // Suppress error message to keep progress bar clean
+      // console.warn(`Could not fetch course files directly for course ${courseId}. This may be okay if files are only in modules.`);
+    }
 
-      if (modulesResponse.ok) {
-        const modules: CanvasModule[] = await modulesResponse.json();
-        
-        for (const module of modules) {
-          // Get module items to find files
-          const itemsResponse = await callCanvasAPI({
-            canvasBaseUrl,
-            accessToken,
-            method: 'GET',
-            apiPath: `/api/v1/courses/${courseId}/modules/${module.id}/items`,
-            params: { per_page: '100' },
-          });
+    // 2. Get files from course modules
+    try {
+      const modulesData = await fetchAllPaginated<any>(
+        canvasBaseUrl,
+        accessToken,
+        `/api/v1/courses/${courseId}/modules`,
+        { include: ['items'], per_page: '100' }
+      );
 
-          if (itemsResponse.ok) {
-            const items: CanvasModuleItem[] = await itemsResponse.json();
-            const fileItems = items.filter(item => item.type === 'File');
-            
-            for (const item of fileItems) {
-              if (item.content_id) {
-                try {
-                  const fileResponse = await callCanvasAPI({
-                    canvasBaseUrl,
-                    accessToken,
-                    method: 'GET',
-                    apiPath: `/api/v1/files/${item.content_id}`,
-                  });
-
-                  if (fileResponse.ok) {
-                    const fileData: CanvasFile = await fileResponse.json();
-                    moduleFiles.push(fileData);
-                  }
-                } catch (error) {
-                  // Silently skip files that can't be fetched
-                }
+      for (const module of modulesData) {
+        if (module.items) {
+          for (const item of module.items) {
+            if (item.type === 'File') {
+              // Avoid duplicates
+              if (!allFiles.some(f => f.id === String(item.content_id))) {
+                allFiles.push({
+                  id: String(item.content_id),
+                  name: item.title,
+                  url: item.html_url,
+                  moduleName: module.name,
+                });
               }
             }
           }
         }
       }
-    } catch (error) {
-      // Silently skip module files if they can't be fetched
+    } catch (e) {
+      // Suppress error message to keep progress bar clean
+      // console.warn(`Could not fetch modules for course ${courseId}. File search may be incomplete.`);
     }
 
-    // Combine and deduplicate files - prioritize module files which are more accessible
-    const allFiles = [...moduleFiles, ...filesData]; // Module files first for more reliable access
-    const uniqueFiles = allFiles.filter((file, index, self) => 
-      index === self.findIndex(f => f.id === file.id)
-    );
-    
-    logger.info(`Total unique files found: ${uniqueFiles.length} (${moduleFiles.length} from modules, ${filesData.length} from direct access)`)
+    if (!searchTerm) {
+      return allFiles;
+    }
 
-    // Map to FileInfo and apply search filtering
-    let files: FileInfo[] = uniqueFiles.map(file => ({
-      id: String(file.id),
-      displayName: file.display_name || file.filename || `File ${file.id}`,
-      filename: file.filename || '',
-      contentType: file.content_type || 'application/octet-stream',
-      size: file.size || 0,
-      createdAt: file.created_at || '',
-      updatedAt: file.updated_at || '',
-      url: file.url || '',
-      thumbnailUrl: file.thumbnail_url,
-      folderId: file.folder_id ? String(file.folder_id) : undefined,
+    // Use Fuse.js for fuzzy searching
+    const fuse = new Fuse(allFiles, {
+      keys: ['name', 'moduleName'],
+      includeScore: true,
+      threshold: 0.4,
+    });
+
+    return fuse.search(searchTerm).map(result => ({
+      ...result.item,
+      similarity: 1 - (result.score || 1), // Convert score to similarity
     }));
 
-    // Apply search filtering and scoring
-    if (searchTerm) {
-      files = files
-        .map(file => ({
-          ...file,
-          similarity: Math.max(
-            calculateSimilarity(searchTerm, file.displayName),
-            calculateSimilarity(searchTerm, file.filename)
-          ),
-        }))
-        .filter(file => file.similarity && file.similarity > 0.1)
-        .sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
-    } else {
-      // Sort by updated date if no search term
-      files.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    }
-
-    return files;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to search files: ${error.message}`);
@@ -235,326 +182,203 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
   }
 }
 
-// Find the best matching file by name
-async function findBestFileMatch(
-  canvasBaseUrl: string, 
-  accessToken: string, 
-  courseId: string, 
-  fileName: string
-): Promise<string | null> {
-  try {
-    const files = await searchFiles({
-      canvasBaseUrl,
-      accessToken,
-      courseId,
-      searchTerm: fileName,
-    });
-
-    if (files.length === 0) {
-      return null;
-    }
-
-    // Return the file with highest similarity
-    return files[0].id;
-  } catch (error) {
-    return null;
-  }
-}
-
-// Process Office documents using LlamaParse API (similar to fetch-parse route)
-async function processDocumentWithLlamaParse(
-  buffer: ArrayBuffer, 
-  contentType: string, 
-  documentType: string
-): Promise<string> {
-  if (!LLAMA_CLOUD_API_KEY) {
-    logger.warn('LLAMA_CLOUD_API_KEY not configured. Cannot extract text from Office documents.');
-    return `[${documentType} - text extraction requires LlamaParse API configuration. Please set LLAMA_CLOUD_API_KEY environment variable.]`;
-  }
-
-  try {
-    // Step 1: Upload file to LlamaParse
-    const formData = new FormData();
-    const fileBlob = new Blob([buffer], { type: contentType });
-    formData.append('file', fileBlob, `document.${getFileExtension(contentType)}`);
-
-    logger.info(`Uploading ${documentType} to LlamaParse for text extraction...`);
-    const uploadResponse = await fetch(`${LLAMA_CLOUD_BASE_URL}/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LLAMA_CLOUD_API_KEY}`,
-        'accept': 'application/json',
-      },
-      body: formData,
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      logger.error(`LlamaParse upload failed: ${uploadResponse.status} - ${errorText}`);
-      return `[${documentType} - upload to parser failed: ${uploadResponse.statusText}]`;
-    }
-
-    const uploadResult = await uploadResponse.json() as LlamaParseUploadResponse;
-    const jobId = uploadResult.id;
-    logger.info(`File uploaded to LlamaParse. Job ID: ${jobId}`);
-
-    // Step 2: Poll for job completion
-    let jobStatus = "";
-    const maxRetries = 15; // Reduce retries for MCP context 
-    const retryInterval = 4000; // 4 seconds
-
-    for (let i = 0; i < maxRetries; i++) {
-      await new Promise(resolve => setTimeout(resolve, retryInterval));
-      logger.info(`Checking LlamaParse job status (${i + 1}/${maxRetries})...`);
-
-      const statusResponse = await fetch(`${LLAMA_CLOUD_BASE_URL}/job/${jobId}`, {
-        headers: {
-          'Authorization': `Bearer ${LLAMA_CLOUD_API_KEY}`,
-          'accept': 'application/json',
-        }
-      });
-
-      if (!statusResponse.ok) {
-        logger.warn(`Failed to get job status: ${statusResponse.statusText}`);
-        continue;
-      }
-
-      const statusResult = await statusResponse.json() as LlamaParseJobStatusResponse;
-      jobStatus = statusResult.status.toUpperCase();
-      logger.info(`Job ${jobId} status: ${jobStatus}`);
-
-      if (jobStatus === "SUCCESS") break;
-      if (jobStatus === "ERROR" || jobStatus === "FAILURE") {
-        throw new Error(`LlamaParse job failed with status: ${jobStatus}`);
-      }
-    }
-
-    if (jobStatus !== "SUCCESS") {
-      return `[${documentType} - parsing did not complete in time. Last status: ${jobStatus}]`;
-    }
-
-    // Step 3: Retrieve the parsed text result
-    logger.info(`Fetching parsed text result for job ${jobId}...`);
-    const resultResponse = await fetch(`${LLAMA_CLOUD_BASE_URL}/job/${jobId}/result/text`, {
-      headers: {
-        'Authorization': `Bearer ${LLAMA_CLOUD_API_KEY}`,
-        'accept': 'application/json',
-      }
-    });
-
-    if (!resultResponse.ok) {
-      const errorText = await resultResponse.text();
-      logger.error(`Failed to retrieve result: ${resultResponse.status} - ${errorText}`);
-      return `[${documentType} - failed to retrieve parsed result: ${resultResponse.statusText}]`;
-    }
-
-    const parsedContent = await resultResponse.text();
-    
-    if (!parsedContent || parsedContent.trim().length === 0) {
-      logger.warn(`Parsed content is empty for ${documentType}.`);
-      return `[${documentType} - parsing completed but extracted content is empty]`;
-    }
-
-    logger.info(`Successfully extracted text from ${documentType} (${parsedContent.length} chars)`);
-    return parsedContent;
-
-  } catch (error) {
-    logger.error(`Error processing ${documentType} with LlamaParse:`, error);
-    return `[${documentType} - text extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}]`;
-  }
-}
-
-// Helper function to get file extension from content type
-function getFileExtension(contentType: string): string {
-  if (contentType.includes('wordprocessingml') || contentType.includes('msword')) {
-    return contentType.includes('document') ? 'docx' : 'doc';
-  }
-  if (contentType.includes('presentationml') || contentType.includes('powerpoint')) {
-    return contentType.includes('presentation') ? 'pptx' : 'ppt';
-  }
-  if (contentType.includes('spreadsheetml') || contentType.includes('excel')) {
-    return contentType.includes('sheet') ? 'xlsx' : 'xls';
-  }
-  return 'bin';
-}
-
-// Extract text content from various file types
-async function extractFileContent(buffer: ArrayBuffer, contentType: string): Promise<string> {
-  try {
-    // Handle PDF files
-    if (contentType === 'application/pdf' || contentType.includes('pdf')) {
-      const pdfParser = await getPdfParse();
-      if (!pdfParser) {
-        return '[PDF file - pdf-parse library not available for text extraction]';
-      }
-      
-      try {
-        const data = await pdfParser(Buffer.from(buffer));
-        return data.text || '[PDF file - could not extract text content]';
-      } catch (pdfError) {
-        logger.warn('PDF parsing error:', pdfError);
-        return '[PDF file - error extracting text content]';
-      }
-    }
-
-    // Handle text files
-    if (contentType.startsWith('text/')) {
-      const decoder = new TextDecoder();
-      return decoder.decode(buffer);
-    }
-
-    // Handle DOCX files using LlamaParse
-    if (contentType.includes('word') || 
-        contentType.includes('document') ||
-        contentType.includes('msword') ||
-        contentType.includes('officedocument.wordprocessingml')) {
-      return await processDocumentWithLlamaParse(buffer, contentType, 'Word Document');
-    }
-
-    // Handle PowerPoint files using LlamaParse
-    if (contentType.includes('powerpoint') || 
-        contentType.includes('presentation') ||
-        contentType.includes('officedocument.presentationml')) {
-      return await processDocumentWithLlamaParse(buffer, contentType, 'PowerPoint Presentation');
-    }
-
-    // Handle Excel files
-    if (contentType.includes('excel') || 
-        contentType.includes('spreadsheet') ||
-        contentType.includes('officedocument.spreadsheetml')) {
-      return '[Excel spreadsheet - text extraction not yet supported. Please download the file to view content.]';
-    }
-
-    // Handle HTML files
-    if (contentType.includes('html')) {
-      const decoder = new TextDecoder();
-      const htmlContent = decoder.decode(buffer);
-      // Basic HTML tag removal for readability
-      return htmlContent.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
-    }
-
-    // Handle JSON files
-    if (contentType.includes('json')) {
-      const decoder = new TextDecoder();
-      const jsonContent = decoder.decode(buffer);
-      try {
-        const parsed = JSON.parse(jsonContent);
-        return JSON.stringify(parsed, null, 2);
-      } catch {
-        return jsonContent;
-      }
-    }
-
-    // For other file types, return a helpful message
-    return `[Binary file of type: ${contentType}. Content extraction not yet supported for this file type. File size: ${buffer.byteLength} bytes]`;
-    
-  } catch (error) {
-    return `[Error extracting content from ${contentType} file: ${error instanceof Error ? error.message : 'Unknown error'}]`;
-  }
-}
-
-// Get content of a specific Canvas file
-export async function getFileContent(params: FileContentParams): Promise<FileContentResult> {
+// Get content of a specific file
+export async function getFileContent(params: FileContentParams): Promise<{ name: string; content: string, url: string }> {
   const { canvasBaseUrl, accessToken, courseId, fileId, fileName } = params;
 
-  if (!canvasBaseUrl || !accessToken || !courseId) {
-    return {
-      fileName: fileName || fileId || 'unknown',
-      content: '',
-      contentType: '',
-      error: 'Missing required parameters',
-    };
-  }
-
   if (!fileId && !fileName) {
-    return {
-      fileName: 'unknown',
-      content: '',
-      contentType: '',
-      error: 'Either fileId or fileName must be provided',
-    };
+    throw new Error('Either fileId or fileName must be provided.');
   }
 
   try {
-    let targetFileId: string | undefined = fileId;
+    let fileToFetch: FileInfo | undefined;
 
-    // If no fileId provided, search for the file by name
-    if (!targetFileId && fileName) {
-      const foundFileId = await findBestFileMatch(canvasBaseUrl, accessToken, courseId, fileName);
-      
-      if (!foundFileId) {
-        return {
-          fileName: fileName,
-          content: '',
-          contentType: '',
-          error: `File "${fileName}" not found in course`,
-        };
+    if (fileId) {
+      // If we have the ID, we can fetch directly
+      const response = await fetch(`${canvasBaseUrl}/api/v1/courses/${courseId}/files/${fileId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) throw new Error(`API error when fetching file by ID: ${response.statusText}`);
+      const fileData: CanvasFile = await response.json();
+      fileToFetch = {
+        id: String(fileData.id),
+        name: fileData.display_name,
+        url: fileData.url,
+        moduleName: null
+      };
+    } else if (fileName) {
+      // If we only have the name, we need to search for it first
+      const searchResults = await searchFiles({ canvasBaseUrl, accessToken, courseId, searchTerm: fileName });
+      fileToFetch = findBestMatch(fileName, searchResults, ['name']) as FileInfo;
+      if (!fileToFetch) {
+        throw new Error(`File '${fileName}' not found in course.`);
+      }
+    }
+
+    if (!fileToFetch) {
+      throw new Error('Could not identify which file to fetch.');
+    }
+
+    // Canvas files often require authentication and may redirect
+    // We need to follow redirects and include authorization
+    const fileResponse = await fetch(fileToFetch.url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      redirect: 'follow' // Important: follow redirects for Canvas file downloads
+    });
+
+    if (!fileResponse.ok) {
+      // If direct download fails, try getting a download URL first
+      try {
+        const downloadUrlResponse = await fetch(`${canvasBaseUrl}/api/v1/files/${fileToFetch.id}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        
+        if (downloadUrlResponse.ok) {
+          const fileInfo = await downloadUrlResponse.json();
+          const secondAttempt = await fetch(fileInfo.url, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            redirect: 'follow'
+          });
+          
+          if (secondAttempt.ok) {
+            const contentType = secondAttempt.headers.get('content-type');
+            let content = await handleFileContent(secondAttempt, contentType);
+            
+            return {
+              name: fileToFetch.name,
+              content,
+              url: fileInfo.url
+            };
+          }
+        }
+      } catch (retryError) {
+        // Fall through to original error
       }
       
-      targetFileId = foundFileId;
+      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
     }
 
-    // First, get file metadata
-    const fileMetaResponse = await callCanvasAPI({
-      canvasBaseUrl,
-      accessToken,
-      method: 'GET',
-      apiPath: `/api/v1/files/${targetFileId}`,
-    });
-
-    if (!fileMetaResponse.ok) {
-      throw new Error(`Failed to get file metadata: ${fileMetaResponse.status}`);
-    }
-
-    const fileMetaData: CanvasFile = await fileMetaResponse.json();
-    const contentType = fileMetaData.content_type || 'application/octet-stream';
-
-    // For Canvas files, we need to get the public URL for reliable access
-    // This approach also works better with student permissions
-    logger.info(`Getting public URL for file ID: ${targetFileId}`);
-    const publicUrlResponse = await callCanvasAPI({
-      canvasBaseUrl,
-      accessToken, 
-      method: 'GET',
-      apiPath: `/api/v1/files/${targetFileId}/public_url`
-    });
-    
-    if (!publicUrlResponse.ok) {
-      throw new Error(`Failed to get public URL for file: ${publicUrlResponse.status}`);
-    }
-    
-    const publicUrlData = await publicUrlResponse.json();
-    const downloadUrl = publicUrlData.public_url;
-    
-    if (!downloadUrl) {
-      throw new Error('Public URL response did not contain a valid URL');
-    }
-    
-    logger.info(`Downloading file content from public URL`);
-    
-    // Download the actual file content using the public URL (no auth header needed)
-    const fileContentResponse = await fetch(downloadUrl);
-
-    if (!fileContentResponse.ok) {
-      throw new Error(`Failed to download file: ${fileContentResponse.status} - ${fileContentResponse.statusText}`);
-    }
-
-    const buffer = await fileContentResponse.arrayBuffer();
-    const content = await extractFileContent(buffer, contentType);
+    const contentType = fileResponse.headers.get('content-type');
+    let content = await handleFileContent(fileResponse, contentType);
 
     return {
-      fileName: fileMetaData.display_name || fileMetaData.filename || `File ${targetFileId}`,
+      name: fileToFetch.name,
       content,
-      contentType,
+      url: fileToFetch.url
     };
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    if (error instanceof Error) {
+      throw new Error(`Failed to get file content: ${error.message}`);
+    } else {
+      throw new Error('Failed to get file content: Unknown error');
+    }
+  }
+}
+
+// Helper function to handle different file content types
+async function handleFileContent(response: Response, contentType: string | null): Promise<string> {
+  if (contentType && contentType.includes('text')) {
+    return await response.text();
+  } else if (contentType && contentType.includes('pdf')) {
+    const pdfParser = await initializePdfParse();
+    if (pdfParser) {
+      try {
+        const dataBuffer = await response.arrayBuffer();
+        
+        // Aggressively suppress all console output during PDF parsing
+        const originalStdout = process.stdout.write;
+        const originalStderr = process.stderr.write;
+        const originalWarn = console.warn;
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        // Redirect all output to nothing during PDF parsing
+        process.stdout.write = () => true;
+        process.stderr.write = () => true;
+        console.warn = () => {};
+        console.log = () => {};
+        console.error = () => {};
+        
+        try {
+          const data = await pdfParser(Buffer.from(dataBuffer));
+          return data.text;
+        } finally {
+          // Restore all console methods
+          process.stdout.write = originalStdout;
+          process.stderr.write = originalStderr;
+          console.warn = originalWarn;
+          console.log = originalLog;
+          console.error = originalError;
+        }
+      } catch (error) {
+        // Only show critical errors, not PDF parsing warnings
+        return `PDF file detected but could not be parsed. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      }
+    } else {
+      return `File is a PDF but PDF parsing is not available. You can download it from: ${response.url}`;
+    }
+  } else if (contentType && (contentType.includes('application/json') || contentType.includes('application/javascript'))) {
+    return await response.text();
+  } else {
+    // For other binary types, we can't do much yet
+    const url = response.url;
+    return `File content is binary (${contentType}) and cannot be displayed as text. You can download it from: ${url}`;
+  }
+}
+
+// Read a file directly by its Canvas file ID (without needing course context)
+export async function readFileById(params: { canvasBaseUrl: string; accessToken: string; fileId: string }): Promise<{ name: string; content: string; url: string }> {
+  const { canvasBaseUrl, accessToken, fileId } = params;
+
+  try {
+    // First, get file metadata
+    const fileInfoResponse = await fetch(`${canvasBaseUrl}/api/v1/files/${fileId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!fileInfoResponse.ok) {
+      throw new Error(`Failed to get file info: ${fileInfoResponse.status} ${fileInfoResponse.statusText}`);
+    }
+
+    const fileInfo = await fileInfoResponse.json();
+
+    // Now download the file content
+    const fileResponse = await fetch(fileInfo.url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      redirect: 'follow'
+    });
+
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
+    }
+
+    const contentType = fileResponse.headers.get('content-type');
+    const content = await handleFileContent(fileResponse, contentType);
+
     return {
-      fileName: fileName || fileId || 'unknown',
-      content: '',
-      contentType: '',
-      error: errorMessage,
+      name: fileInfo.display_name || fileInfo.filename || `File ${fileId}`,
+      content,
+      url: fileInfo.url
     };
+
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to read file by ID: ${error.message}`);
+    } else {
+      throw new Error('Failed to read file by ID: Unknown error');
+    }
   }
 }

@@ -1,11 +1,15 @@
 // Canvas API proxy for MCP server - adapted from Notioc's canvas-proxy.ts
+import NodeCache from 'node-cache';
+
+// Initialize cache with a 5-minute TTL for each entry
+const canvasCache = new NodeCache({ stdTTL: 300 });
 
 interface ProxyRequestParams {
   canvasBaseUrl: string;
   accessToken: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   apiPath: string; // e.g., '/api/v1/courses'
-  params?: Record<string, string | number | boolean>; // For GET query parameters
+  params?: Record<string, string | number | boolean | string[]>; // For GET query parameters
   body?: Record<string, any>; // For POST/PUT request body
   returnRawBuffer?: boolean; // Flag to get raw file content
 }
@@ -31,7 +35,11 @@ export async function callCanvasAPI({
   if (method === 'GET' && params) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      query.append(key, String(value));
+      if (Array.isArray(value)) {
+        value.forEach(v => query.append(`${key}[]`, String(v)));
+      } else {
+        query.append(key, String(value));
+      }
     });
     if (query.toString()) {
       targetUrl += `?${query.toString()}`;
@@ -53,12 +61,42 @@ export async function callCanvasAPI({
     requestBody = JSON.stringify(body);
   }
 
+  // Caching for GET requests
+  if (method === 'GET') {
+    const cacheKey = targetUrl;
+    const cachedResponse = canvasCache.get<Buffer>(cacheKey);
+
+    if (cachedResponse) {
+      // Create a new Response object from the cached buffer
+      return new Response(cachedResponse, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Cache-Hit': 'true',
+        },
+      });
+    }
+  }
+
   try {
     const response = await fetch(targetUrl, {
       method: method,
       headers: headers,
       body: requestBody,
     });
+
+    if (method === 'GET' && response.ok) {
+      const cacheKey = targetUrl;
+      const responseBuffer = await response.arrayBuffer();
+      canvasCache.set(cacheKey, Buffer.from(responseBuffer));
+      
+      // Return a new response from the buffer so the original can be cached
+      return new Response(responseBuffer, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
 
     return response;
 
@@ -78,6 +116,7 @@ export interface CanvasCourse {
   course_code?: string;
   workflow_state?: string;
   enrollment_state?: string;
+  nickname?: string;
 }
 
 export interface CanvasFile {
@@ -87,6 +126,7 @@ export interface CanvasFile {
   content_type?: string;
   size?: number;
   url?: string;
+  html_url?: string;
   created_at?: string;
   updated_at?: string;
   thumbnail_url?: string;
@@ -112,6 +152,7 @@ export interface CanvasModule {
   workflow_state?: string;
   items_count?: number;
   items_url?: string;
+  items?: CanvasModuleItem[];
 }
 
 export interface CanvasModuleItem {

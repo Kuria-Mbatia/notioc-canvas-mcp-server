@@ -1,547 +1,210 @@
 # Notioc Canvas MCP Server
 
-A Model Context Protocol (MCP) server that provides AI assistants with access to Canvas LMS data. Currently optimized for Claude Desktop with local integration.
+A Model Context Protocol (MCP) server that provides AI assistants with seamless access to Canvas LMS data. This server features intelligent indexing, natural language processing, and autonomous file discovery to provide fast, contextually-aware, and accurate information.
 
-> ⚠️ **IMPORTANT**: This project requires you to use your own API keys, including a Canvas API token and LlamaParse API key. Never share your `.env` file or API keys with others.
+> ⚠️ **IMPORTANT**: This project requires you to use your own Canvas API token. Never share your `.env` file or API keys with others.
 
 ## ✨ Features
 
-- **📚 Course Management**: List and access Canvas courses
-- **📄 Pages & Content**: Browse and read course pages with full content
-- **💬 Discussions**: Access discussion topics and announcements  
-- **📝 Assignment Access**: Retrieve assignment details and requirements
-- **📁 File System**: Search and access course files with intelligent matching
-- **🔍 Content Extraction**: Read PDFs, documents, and text files with LlamaParse
-- **🔒 Secure Authentication**: Uses your Canvas API tokens for maximum privacy
-- **🤖 Privacy-First Design**: 100% local processing with Claude Desktop
-- **🚀 Enhanced Setup**: Intelligent config detection and comprehensive troubleshooting
-- **🛠️ Beginner-Friendly**: Step-by-step guidance with Terminal newcomer support
+- **📚 Course Management**: List and access Canvas courses with automatic course name recognition
+- **📄 Pages & Content**: Browse and read course pages with full content parsing
+- **💬 Discussions**: Access discussion topics and announcements with intelligent filtering
+- **📝 Smart Assignment Access**: Automatically find homework assignments and their associated files
+- **📁 Intelligent File Discovery**: Search, access, and process course files with automatic PDF parsing
+- **🔍 Natural Language Search**: Ask questions like "find homework 3 in math 451" and get instant results
+- **📄 File Processing & Q&A**: Process PDFs and documents for in-chat discussion without downloads
+- **🤖 Homework File Auto-Discovery**: Automatically finds and extracts files from assignment descriptions
+
+---
+
+### 🧠 Agentic Capabilities
+
+- **🚀 Smart Indexing Agent**: Run the indexer once to create a high-speed local database of all your course content. Subsequent queries are lightning-fast and don't require hitting the Canvas API.
+- **🧠 Semantic Q&A**: Ask natural language questions about your courses (e.g., "What is the late policy for my history class?") and get intelligent, contextually-aware answers. The server understands the *meaning* of your question and finds the most relevant excerpts from the syllabus, assignments, and course files.
+- **🕸️ Course Knowledge Graph**: Build a complete, structured model of a course, including its syllabus, assignments, and files, for comprehensive analysis or review.
+- **🤖 Autonomous Operation**: Enable the background service to automatically and periodically update its own knowledge base. It's a "set it and forget it" way to ensure your agent always has the latest course information.
+- **🔍 Natural Language Queries**: Use plain English to find content: "get homework 3 for math 451", "what's due this week", "process the assignment files"
+- **📄 Smart File Processing**: Automatically extracts text from PDFs, makes files discussable in chat, and discovers embedded assignment files
 
 ## 🚀 Quick Start
 
-### Claude Desktop Integration
-
-## 🚀 Quick Start
-
-### Automated Setup (Recommended)
+### 1. Setup
 ```bash
-# 1. Clone and enter directory
+# Clone and enter directory
 git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
 cd notioc-canvas-mcp-server
 
-# 2. Run enhanced production setup script
-./setup.sh
-
-# 3. Restart Claude Desktop and test with: "What Canvas courses am I enrolled in?"
-```
-
-> ✨ **New in v2.0**: Enhanced setup script with automatic Claude Desktop config detection, comprehensive troubleshooting, and beginner-friendly guidance!
-
-> 🔧 **No Node.js?** The setup script will detect if Node.js is missing and provide OS-specific installation instructions to get you started quickly.
-
-### Manual Setup
-For local development with privacy-focused processing:
-
-```bash
-# 1. Setup and build
+# Install dependencies and build the server
 npm install && npm run build
+```
 
-# 2. Configure .env file
+### 2. Configure
+```bash
+# Create your environment file
 cp .env.example .env
-# Edit .env with your Canvas API token and LlamaParse API key
 
-# 3. Configure Claude Desktop (see detailed instructions below)
+# Edit the .env file with your Canvas API token and base URL
+# See "Get Your Canvas API Token" section below for instructions
 ```
 
-### What Makes Our Setup Special?
+### 3. Run the Server
 
-🎯 **Smart Configuration Detection**
-- Automatically finds Claude Desktop config across different OS and installation types
-- Handles multiple potential config locations gracefully
-- Creates necessary directories with proper permissions
-
-🔍 **Enhanced Troubleshooting**
-- Detailed error messages with specific solutions
-- Real-time validation of Canvas API connectivity
-- Comprehensive system requirements checking
-
-🛡️ **Security Best Practices**
-- Recommends secure `.env` file usage over embedded credentials
-- Validates token formats and API connectivity
-- Automatic config file backups
-
-👥 **Beginner-Friendly Experience**
-- Terminal newcomer guidance and explanations
-- Step-by-step Canvas API token instructions
-- Clear next steps and success indicators
-
-# 3. Configure Claude Desktop
-# Follow steps in the Usage section below
-```
-
-## 🛠️ Installation
-
-### 1. Prerequisites
-
-**System Requirements:**
-- **Node.js 18+**: JavaScript runtime for the MCP server
-- **Canvas LMS access**: With API token generation permissions
-- **Claude Desktop**: Latest version installed
-- **LlamaParse API key**: For document content extraction (optional)
-
-**🚀 First Time? No Problem!**
-> Our setup script automatically checks for Node.js and provides installation guidance if needed. Just run `./setup.sh` and follow the prompts!
-
-#### Installing Node.js (For Beginners)
-
-**🎯 Easiest Method: Official Installer**
-1. Visit [nodejs.org](https://nodejs.org/)
-2. Download the **LTS (Long Term Support)** version
-3. Run the installer and follow the prompts
-4. Works on Windows, macOS, and Linux
-
-**Alternative Methods:**
-
-<details>
-<summary>📱 macOS Installation Options</summary>
-
+**Production Mode (with indexing):**
 ```bash
-# Option 1: Homebrew (if you have it)
-brew install node
-
-# Option 2: MacPorts (if you have it)
-sudo port install nodejs18
-
-# Option 3: Node Version Manager (for developers)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+npm start
 ```
-</details>
 
-<details>
-<summary>🐧 Linux Installation Options</summary>
-
+**Development Mode (fast startup):**
 ```bash
-# Ubuntu/Debian
-sudo apt update && sudo apt install nodejs npm
-
-# RHEL/CentOS/Fedora
-sudo dnf install nodejs npm
-
-# Arch Linux
-sudo pacman -S nodejs npm
-
-# Using Node Version Manager
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+npm run dev  # Skips indexing for instant startup during development
 ```
-</details>
 
-<details>
-<summary>🪟 Windows Installation Options</summary>
-
+**For Autonomous Operation (Recommended):**
+Set these in your `.env` file before starting:
 ```bash
-# Official installer (recommended)
-# Download from https://nodejs.org/
-
-# Chocolatey package manager
-choco install nodejs
-
-# Winget package manager
-winget install OpenJS.NodeJS
-
-# Node Version Manager for Windows
-# Visit: https://github.com/coreybutler/nvm-windows
+ENABLE_BACKGROUND_INDEXING=true
+RUN_INDEXER_ON_STARTUP=true
+INDEXING_INTERVAL_HOURS=12
 ```
-</details>
+With these settings, the server will automatically index all your course data on startup and keep it updated every 12 hours. No manual intervention needed!
 
-**Verify Installation:**
-```bash
-# Check if Node.js is installed
-node --version
+### 4. Connect Your MCP Client
+Now the server is running and ready to be connected to your MCP client (like Claude Desktop).
 
-# Check if npm is available
-npm --version
-```
+## 🛠️ Available Tools
 
-### 2. Installation
+### 🔍 **Smart Discovery Tools**
+| Tool Name | Description | Example Usage |
+|-----------|-------------|---------------|
+| `smart_search` | Natural language search for assignments and files | "find homework 3 in math 451" |
+| `get_homework` | Automatically find homework with associated files | "get homework 3 for math 451" |
+| `process_file` | Process files for in-chat discussion and Q&A | "process file 176870249" |
 
-```bash
-# Clone or download this directory
-cd mcp-server
+### 📚 **Course Content Tools**
+| Tool Name | Description | Example Usage |
+|-----------|-------------|---------------|
+| `get_courses` | Lists your Canvas courses | "show me my active courses" |
+| `get_assignments` | Gets course assignments with file discovery | "what assignments do I have in CMPEN 431?" |
+| `find_files` | Searches for course files with smart filtering | "find all PDF files in math 451" |
+| `read_file` | Read file content with automatic processing | "read homework3.pdf" |
+| `read_file_by_id` | Direct file access by Canvas file ID | "read file 176870249" |
 
-# Install dependencies
-npm install
+### 📄 **Pages & Discussions**
+| Tool Name | Description | Example Usage |
+|-----------|-------------|---------------|
+| `get_pages` | Gets pages in a course | "what pages are in my english course?" |
+| `read_page` | Reads a specific page | "read the syllabus page" |
+| `get_discussions` | Lists course discussions and announcements | "show me recent announcements" |
+| `read_discussion` | Reads a discussion topic | "what's in the latest announcement?" |
 
-# Build the TypeScript code
-npm run build
-```
+### 🧠 **AI-Powered Tools**
+| Tool Name | Description | Example Usage |
+|-----------|-------------|---------------|
+| `run_indexer` | Creates local high-speed index of course data | (usually runs automatically) |
+| `generate_qa_prompt` | Intelligent Q&A using indexed data | "what is the late policy?" |
+| `build_knowledge_graph` | Structured course overview | "build knowledge graph for intro to cs" |
 
-### 3. Configuration
+## 🎯 **Natural Language Examples**
 
-1. Copy the environment template:
-```bash
-cp .env.example .env
-```
+The server now understands natural language queries:
 
-2. Edit `.env` with your Canvas and LlamaParse credentials:
-```env
-# Notioc Canvas MCP Server Configuration
-CANVAS_BASE_URL=https://your-canvas-instance.instructure.com
-CANVAS_ACCESS_TOKEN=your-canvas-access-token-here
-LLAMA_CLOUD_API_KEY=your-llama-cloud-api-key-here
-```
+**Homework & Assignments:**
+- "Find homework 3 in math 451"
+- "Get homework 3 for math 451 with file processing"
+- "What assignments are due this week in CMPEN 431?"
+- "Show me homework 2 files"
 
-### 4. Get Your Canvas API Token
+**File Processing:**
+- "Process file 176870249 for discussion"
+- "Read the PDF file and make it discussable"
+- "Get homework 3 and process all attached files"
+
+**Course Content:**
+- "What pages are in my operating systems course?"
+- "Show me discussions in technical writing"
+- "Find all files in my circuits class"
+
+## 📄 **File Processing Features**
+
+### **Automatic PDF Parsing**
+- ✅ PDFs are automatically converted to readable text
+- ✅ Content becomes discussable in chat
+- ✅ No downloads required - everything happens in the conversation
+
+### **Smart File Discovery**
+- 🔍 Automatically finds files attached to assignments
+- 🔗 Extracts embedded file links from assignment descriptions
+- 📎 Discovers files from multiple sources (attachments, embedded links, course files)
+
+### **Processing Options**
+- `summary` - Brief overview of file content
+- `key_points` - Extract important points and bullet lists
+- `full_content` - Complete file text
+- `qa_ready` - Optimized for questions and discussion (default)
+
+## ⚙️ Configuration
+
+### Get Your Canvas API Token
 
 1. Log into your Canvas instance
 2. Go to Account → Settings
 3. Scroll down to "Approved Integrations"
 4. Click "+ New Access Token"
-5. Give it a purpose name (e.g., "Notioc MCP Server")
-6. Copy the generated token to your `.env` file
+5. Give it a purpose name (e.g., "Notioc MCP Server") and an expiration date.
+6. Copy the generated token to your `.env` file's `CANVAS_ACCESS_TOKEN` field.
+7. Also, ensure the `CANVAS_BASE_URL` in your `.env` file is correct for your institution (e.g., `https://psu.instructure.com`).
 
-### 5. Get Your LlamaParse API Key
+### 🤖 Autonomous Operation (Recommended)
 
-1. Sign up at https://cloud.llamaindex.ai/
-2. Generate an API key from your account
-3. Copy the API key to your `.env` file (LLAMA_CLOUD_API_KEY)
+**Enable "Set It and Forget It" Mode:**
 
-## 🔧 Available Tools
-
-The Notioc Canvas MCP Server provides 8 tools with MCP-compliant names:
-
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `get_courses` | List your Canvas courses | "Show me my active courses" |
-| `get_pages` | Get pages in a course | "What pages are in my English course?" |
-| `read_page` | Read a specific page | "Read the syllabus page" |
-| `get_discussions` | List course discussions | "Show me the announcements" |
-| `read_discussion` | Read a discussion topic | "What's in the latest announcement?" |
-| `get_assignments` | Get course assignments | "What assignments do I have?" |
-| `find_files` | Search for course files | "Find all PDF files" |
-| `read_file` | Read file content | "Read the homework instructions" |
-
-### 5. Test the Server
+Add these settings to your `.env` file for fully autonomous operation:
 
 ```bash
-# Test the MCP server locally
-npm run test
+# Enable automatic background updates
+ENABLE_BACKGROUND_INDEXING=true
 
-# Or test with a simple request
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
+# Auto-index on server startup (ensures fresh data)
+RUN_INDEXER_ON_STARTUP=true
+
+# How often to refresh (in hours) - default is 12 (twice daily)
+INDEXING_INTERVAL_HOURS=12
 ```
 
-## 📝 Usage with Claude Desktop
+**Benefits of Autonomous Mode:**
+- 🚀 **Zero Maintenance**: Server keeps itself updated automatically
+- ⚡ **Always Fresh**: Gets latest assignments, announcements, and files
+- 🧠 **Smart Queries**: Q&A and knowledge graphs use up-to-date information
+- 💾 **Local Speed**: All queries run from local cache for instant responses
 
-### Production-Level Setup Guide
+### 🛠️ **Development Mode**
 
-#### Step 1: Complete Installation & Build
+For faster development and testing:
+
 ```bash
-# Ensure you're in the project directory
-cd /path/to/notioc-canvas-mcp-server
-
-# Install dependencies
-npm install
-
-# Build the TypeScript code
-npm run build
-
-# Verify build completed successfully
-ls -la dist/src/server.js
+npm run dev  # Fast startup without indexing
 ```
 
-#### Step 2: Configure Environment Variables
-
-**Option A: Using .env file (Recommended)**
-```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit .env with your credentials
-nano .env  # or use your preferred editor
-```
-
-Your `.env` file should contain:
-```env
-CANVAS_BASE_URL=https://your-institution.instructure.com
-CANVAS_ACCESS_TOKEN=your_canvas_api_token_here
-LLAMA_CLOUD_API_KEY=your_llama_cloud_api_key_here
-```
-
-**Option B: Direct environment variables in Claude config**
-If you prefer to set environment variables directly in the Claude configuration (less secure but more explicit).
-
-#### Step 3: Test the MCP Server
-```bash
-# Test server functionality
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
-
-# Should return a JSON response with available tools
-```
-
-#### Step 4: Configure Claude Desktop
-
-**The setup script automatically detects your Claude Desktop config location:**
-- **macOS**: Multiple potential locations checked automatically
-- **Windows**: Multiple AppData paths supported
-- **Linux**: XDG and local config directories supported
-
-> 💡 **Smart Detection**: The setup script now automatically finds your Claude Desktop configuration file across different versions and installation types.
-
-**Configuration Options:**
-
-**Option A: Using .env file (Most Secure)**
-```json
-{
-  "mcpServers": {
-    "notioc-canvas": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server/dist/src/server.js"],
-      "cwd": "/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server"
-    }
-  }
-}
-```
-
-**Option B: Environment variables in config (Less Secure)**
-```json
-{
-  "mcpServers": {
-    "notioc-canvas": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server/dist/src/server.js"],
-      "cwd": "/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server",
-      "env": {
-        "CANVAS_BASE_URL": "https://your-institution.instructure.com",
-        "CANVAS_ACCESS_TOKEN": "your_canvas_api_token_here",
-        "LLAMA_CLOUD_API_KEY": "your_llama_cloud_api_key_here"
-      }
-    }
-  }
-}
-```
-
-⚠️ **IMPORTANT**: Replace `/ABSOLUTE/PATH/TO/notioc-canvas-mcp-server` with the actual absolute path to your installation.
-
-#### Step 5: Restart Claude Desktop
-1. **Completely close** Claude Desktop
-2. **Reopen** Claude Desktop
-3. **Wait 10-15 seconds** for the MCP server to initialize
-
-#### Step 6: Verify Integration
-Ask Claude: **"What Canvas courses am I enrolled in?"**
-
-If successful, Claude will list your Canvas courses. If not, check the troubleshooting section below.
-
-### 🚨 Troubleshooting
-
-> 🔧 **Enhanced Diagnostics**: The setup script now provides detailed troubleshooting information and suggested solutions for common issues.
-
-#### Check Claude Desktop Logs
-```bash
-# macOS - Check MCP logs
-tail -f ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
-
-# Look for errors in the logs
-cat ~/Library/Logs/Claude/mcp-server-notioc-canvas.log | grep -i error
-```
-
-#### Quick Diagnostic Commands
-```bash
-# Test MCP server directly
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/src/server.js
-
-# Verify Canvas API connection
-curl -H "Authorization: Bearer $CANVAS_ACCESS_TOKEN" "$CANVAS_BASE_URL/api/v1/courses"
-
-# Run comprehensive verification
-./verify.sh
-```
-
-#### Common Issues & Solutions
-
-1. **"Canvas configuration missing" error**
-   ```bash
-   # The setup script now provides detailed Canvas token instructions
-   # Re-run setup if needed: ./setup.sh
-   cat .env  # Verify file exists and format is correct
-   ```
-
-2. **"Server disconnected" error**
-   ```bash
-   # Enhanced error reporting shows exact server output
-   cd /path/to/notioc-canvas-mcp-server
-   echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js
-   ```
-
-3. **Claude Desktop config not found**
-   ```bash
-   # Setup script now automatically detects multiple config locations
-   # Manual fallback if auto-detection fails:
-   ls -la "$HOME/Library/Application Support/Claude/"
-   ls -la "$HOME/Library/Application Support/Anthropic/"
-   ```
-
-4. **Permission denied errors**
-   ```bash
-   # Setup script now checks and creates directories with proper permissions
-   # Manual fix if needed:
-   chmod +x setup.sh
-   chmod 755 dist/src/server.js
-   ```
-
-5. **Environment variable loading issues**
-   ```bash
-   # Enhanced .env loading with explicit path resolution
-   # Verify .env is in project root:
-   ls -la .env
-   # Test environment loading:
-   node -e "require('dotenv').config(); console.log('CANVAS_BASE_URL:', process.env.CANVAS_BASE_URL ? 'SET' : 'NOT SET')"
-   ```
-
-#### Advanced Troubleshooting
-
-**Debug Mode:**
-```bash
-# Run setup with verbose output
-DEBUG=true ./setup.sh
-
-# Check all system requirements
-./setup.sh --check-only
-```
-
-**Config Validation:**
-```bash
-# Validate Claude Desktop config syntax
-cat ~/.../claude_desktop_config.json | jq '.'
-
-# Test MCP server in isolation
-node dist/src/server.js < /dev/null
-```
-
-#### Environment Variables Verification
-```bash
-# Test environment loading
-cd /path/to/notioc-canvas-mcp-server
-node -e "require('dotenv').config(); console.log('CANVAS_BASE_URL:', process.env.CANVAS_BASE_URL ? 'SET' : 'NOT SET')"
-```
-
-#### Manual Canvas API Test
-```bash
-# Test Canvas API directly
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  "https://your-institution.instructure.com/api/v1/courses"
-```
-
-#### Production Deployment Considerations
-
-**Performance Optimization:**
-- The server caches minimal data to respect Canvas API rate limits
-- File content extraction uses LlamaParse for Office documents
-- Large files are processed with timeout handling
-- Enhanced error reporting for faster debugging
-
-**Security Best Practices:**
-- Store API tokens in `.env` file, not in Claude config
-- Setup script recommends secure configuration options
-- Regularly rotate Canvas API tokens
-- Monitor Claude Desktop logs for unusual activity
-- Use the principle of least privilege for Canvas API tokens
-
-**Monitoring & Maintenance:**
-```bash
-# Check server health
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/src/server.js | jq '.result.tools | length'
-
-# Monitor log file size
-ls -lh ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
-
-# Run comprehensive system check
-./verify.sh
-
-# Clear large log files if needed
-echo > ~/Library/Logs/Claude/mcp-server-notioc-canvas.log
-```
-
-**Backup & Recovery:**
-```bash
-# Backup your configuration
-cp .env .env.backup.$(date +%Y%m%d)
-cp ~/.../claude_desktop_config.json ~/claude_config_backup_$(date +%Y%m%d).json
-
-# Quick recovery test
-./setup.sh --verify-only
-```
-
-## 💬 Example Conversations
-
-Once set up, you can ask your AI assistant questions like:
-
-### Course Management
-- "What Canvas courses am I enrolled in?"
-- "Show me my active courses"
-
-### Content Access  
-- "What pages are available in my English course?"
-- "Read the syllabus for course 123456"
-- "Show me the latest announcements"
-
-### Assignments
-- "What assignments do I have in my Computer Science course?"
-- "Are there any assignments due this week?"
-- "Show me assignment details for 'Essay 1'"
-
-### File Management
-- "Find all PDF files in my course" 
-- "Search for files containing 'midterm'"
-- "Read the content of the homework instructions"
-
-## 📁 Project Structure
-
-```
-canvas-mcp-server/
-├── src/
-│   └── server.ts          # Main MCP server
-├── tools/                 # Individual tool implementations
-│   ├── courses.ts         # Course listing
-│   ├── assignments.ts     # Assignment access
-│   ├── files.ts          # File operations
-│   └── pages-discussions.ts # Pages and discussions
-├── lib/
-│   ├── canvas-api.ts     # Canvas API wrapper
-│   └── logger.ts         # Logging utilities
-├── deploy.sh            # Deployment helper script
-```
-Retrieves the content of a specific file.
-
-
-
-
-
-## 🔐 Security & Privacy
-
-- **Local Processing**: Your Canvas data stays on your machine with Claude Desktop
-- **Secure API Access**: Uses your personal Canvas API token
-- **No Data Storage**: No course data is stored on external servers
-- **Direct Integration**: Communicates directly with Canvas APIs
-- **Environment Variables**: API keys are stored safely in environment variables
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with both ChatGPT and Claude integrations
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🙋 Support
-
-- **Issues**: Report bugs and request features on GitHub
-- **Documentation**: Check our comprehensive setup guides
+**Manual Mode:**
+Set `ENABLE_BACKGROUND_INDEXING=false` if you prefer to run the indexer manually via the `run_indexer` tool.
 
 ---
 
-**Notioc Canvas MCP Server** - Bringing your Canvas courses to your AI assistant. 🎓✨
+## 🎉 **What's New in v1.1**
+
+- **📊 Clean Progress Display**: Beautiful single-line progress bar during indexing with real-time updates
+- **🔇 Silent Processing**: Suppressed verbose logging for a cleaner indexing experience
+- **📏 Smart Text Truncation**: Long course and file names are intelligently shortened to prevent line wrapping
+- **⚡ Enhanced UX**: Smoother, more professional indexing process with clear visual feedback
+
+## 🎯 **Previous Features (v1.0)**
+
+- **🔍 Natural Language Search**: Ask in plain English to find homework and files
+- **📄 PDF Processing**: Automatic PDF text extraction and in-chat discussion
+- **🤖 Smart File Discovery**: Automatically finds homework files from multiple sources
+- **⚡ Fast Dev Mode**: `npm run dev` for instant startup during development
+- **📝 Enhanced Homework Tools**: Better assignment discovery with automatic file processing
+- **🔗 Embedded Link Detection**: Finds files referenced in assignment descriptions
+
+---
+*This README covers the core autonomous and smart discovery features. The server now provides a seamless, intelligent interface to all your Canvas content.*
