@@ -64,7 +64,7 @@ function getCanvasConfig(): CanvasConfig {
 }
 
 // Wrapper function to handle indexing with a concurrency lock
-async function handleIndexing(source: 'startup' | 'scheduled' | 'manual', initialConfig?: CanvasConfig) {
+async function handleIndexing(source: 'startup' | 'scheduled' | 'manual', initialConfig?: CanvasConfig, forceRefreshOverride?: boolean) {
   if (isIndexing) {
     logger.info(`Indexing already in progress. Skipping ${source} request.`);
     return;
@@ -75,13 +75,53 @@ async function handleIndexing(source: 'startup' | 'scheduled' | 'manual', initia
   try {
     const config = initialConfig || getCanvasConfig();
     logger.info(`Indexer is using Canvas URL: ${config.canvasBaseUrl}`);
-    await runFullIndex({ canvasBaseUrl: config.canvasBaseUrl, accessToken: config.accessToken });
+    
+    // Get cache settings from environment
+    const forceRefresh = forceRefreshOverride !== undefined ? forceRefreshOverride : (source === 'manual'); // Manual runs default to force refresh
+    const maxAgeHours = parseInt(process.env.CACHE_MAX_AGE_HOURS || '6', 10);
+    
+    await runFullIndex({ 
+      canvasBaseUrl: config.canvasBaseUrl, 
+      accessToken: config.accessToken,
+      forceRefresh,
+      maxAgeHours
+    });
     logger.info(`Indexer run (triggered by: ${source}) completed successfully.`);
   } catch (error) {
     logger.error(`Indexer run (triggered by: ${source}) failed:`, error);
   } finally {
     isIndexing = false;
   }
+}
+
+function formatDiscussionReplies(replies: any[], level = 0): string {
+  let markdown = '';
+  const indent = '  '.repeat(level);
+
+  for (const reply of replies) {
+    if (!reply.message) continue;
+
+    const author = reply.user_name || 'Anonymous';
+    const postedAt = reply.created_at ? new Date(reply.created_at).toLocaleString() : 'No date';
+    
+    // Naively strip HTML tags and clean up message
+    const message = (reply.message || '')
+      .replace(/<p>/gi, '')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+
+    if (message) {
+        markdown += `\n${indent}- **${author}** (${postedAt}):\n`;
+        markdown += `${indent}  > ${message.replace(/\n/g, `\n${indent}  > `)}\n`;
+
+        if (reply.replies && reply.replies.length > 0) {
+            markdown += formatDiscussionReplies(reply.replies, level + 1);
+        }
+    }
+  }
+  return markdown;
 }
 
 async function main() {
@@ -146,10 +186,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
         {
           name: 'run_indexer',
-          description: 'Runs the indexer to fetch all data from Canvas and store it in the local database. This may take a few minutes.',
+          description: 'Runs the indexer to fetch data from Canvas and store it in the local database. Uses smart caching to avoid re-fetching recent data unless forced.',
           inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+              forceRefresh: {
+                type: 'boolean',
+                description: 'Force refresh all data even if recently cached (default: true for manual runs)',
+                default: true
+              }
+            },
           },
         },
       {
@@ -490,16 +536,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
     try {
       switch (toolName) {
-        case 'run_indexer':
-          handleIndexing('manual'); // Don't await, let it run in the background
+        case 'run_indexer': {
+          const inputParams = input as any;
+          const forceRefresh = inputParams.forceRefresh !== false; // Default to true for manual runs
+          handleIndexing('manual', undefined, forceRefresh); // Don't await, let it run in the background
+          
+          const refreshText = forceRefresh ? ' (force refresh mode)' : ' (smart caching mode)';
           return {
             content: [
               {
                 type: "text",
-                text: "Indexer has been started manually. It will run in the background. Check server logs for progress."
+                text: `Indexer has been started manually${refreshText}. It will run in the background. Check server logs for progress.`
               }
             ]
           };
+        }
 
       case 'get_courses': {
           const courses = await listCourses({
@@ -553,7 +604,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             ...getCanvasConfig(),
             ...(input as Omit<DiscussionsListParams, 'canvasBaseUrl' | 'accessToken'>)
           });
-          const markdown = `| Topic Title | Last Updated |\n|---|---|\n` + discussions.map(d => `| ${d.title} | ${d.lastReplyAt ? new Date(d.lastReplyAt).toLocaleString() : 'N/A'} |`).join('\n');
+          const markdown = `| Discussion ID | Topic Title | Last Updated |\n|---|---|---|\n` + discussions.map(d => `| ${d.id} | ${d.title} | ${d.lastReplyAt ? new Date(d.lastReplyAt).toLocaleString() : 'N/A'} |`).join('\n');
           return {
             content: [
               {
@@ -569,11 +620,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             ...getCanvasConfig(),
             ...(input as Omit<DiscussionContentParams, 'canvasBaseUrl' | 'accessToken'>)
           });
+          
+          let markdown = `## ${discussionContent.title}\n\n`;
+          markdown += `${discussionContent.message}\n\n`;
+          
+          if (discussionContent.replies && discussionContent.replies.length > 0) {
+            markdown += '---\n\n### Replies\n';
+            markdown += formatDiscussionReplies(discussionContent.replies);
+          } else {
+            markdown += '*No replies found for this discussion.*';
+          }
+          
         return {
           content: [
             {
                 type: "text",
-                text: discussionContent.message
+                text: markdown
             }
           ]
         };
@@ -776,10 +838,11 @@ Knowledge Graph for: **${graph.courseName}**
                     markdown += `**Full Content:**\n\`\`\`\n${fileContent.content}\n\`\`\`\n\n`;
                   }
                   
-                  markdown += `**Sample Questions:**\n`;
-                  markdown += `- What are the main requirements in ${file.name}?\n`;
-                  markdown += `- Explain the key concepts from this file\n`;
-                  markdown += `- What problems need to be solved?\n\n`;
+                  markdown += `### 💬 Sample Questions You Can Ask\n\n`;
+                  markdown += `- What are the main topics covered in this file?\n`;
+                  markdown += `- Can you explain the key concepts?\n`;
+                  markdown += `- What are the requirements mentioned?\n`;
+                  markdown += `- Summarize the important points\n\n`;
                   
                 } catch (error) {
                   markdown += `### ${file.name}\n\n*Could not process file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`;

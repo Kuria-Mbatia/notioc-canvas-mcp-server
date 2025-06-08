@@ -72,7 +72,8 @@ export interface FileInfo {
 export interface FileContentParams {
   canvasBaseUrl: string;
   accessToken: string;
-  courseId: string;
+  courseId?: string;
+  courseName?: string;
   fileId?: string;
   fileName?: string;
 }
@@ -184,13 +185,27 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
 
 // Get content of a specific file
 export async function getFileContent(params: FileContentParams): Promise<{ name: string; content: string, url: string }> {
-  const { canvasBaseUrl, accessToken, courseId, fileId, fileName } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, fileId, fileName } = params;
 
   if (!fileId && !fileName) {
     throw new Error('Either fileId or fileName must be provided.');
   }
 
   try {
+    // Resolve courseName to courseId if needed
+    if (!courseId && courseName) {
+      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
+      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      if (!matchedCourse) {
+        throw new Error(`Could not find a course with the name "${courseName}".`);
+      }
+      courseId = matchedCourse.id;
+    }
+
+    if (!courseId) {
+      throw new Error('Could not determine course ID.');
+    }
+
     let fileToFetch: FileInfo | undefined;
 
     if (fileId) {

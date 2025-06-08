@@ -11,6 +11,42 @@ import { generateEmbedding, splitIntoChunks } from './vectorize.js';
 export interface IndexerParams {
   canvasBaseUrl: string;
   accessToken: string;
+  forceRefresh?: boolean; // Force refresh even if data is recent
+  maxAgeHours?: number;   // How old data can be before refresh (default: 6 hours)
+}
+
+// Smart caching logic
+async function isDataFresh(courseId: string, maxAgeHours: number = 6): Promise<boolean> {
+  const db = await getDb();
+  const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+  
+  // Check if we have recent data for this course
+  const courseData = await db.get(
+    'SELECT last_indexed FROM courses WHERE id = ? AND last_indexed > ?',
+    courseId, cutoffTime
+  );
+  
+  return !!courseData;
+}
+
+async function getDatabaseStats(): Promise<{ courses: number; assignments: number; files: number; syllabi: number; lastIndexed?: string }> {
+  const db = await getDb();
+  
+  const [courses, assignments, files, syllabi, lastIndexed] = await Promise.all([
+    db.get('SELECT COUNT(*) as count FROM courses'),
+    db.get('SELECT COUNT(*) as count FROM assignments'),
+    db.get('SELECT COUNT(*) as count FROM files'),
+    db.get('SELECT COUNT(*) as count FROM syllabus'),
+    db.get('SELECT MAX(last_indexed) as last_indexed FROM courses')
+  ]);
+  
+  return {
+    courses: courses?.count || 0,
+    assignments: assignments?.count || 0,
+    files: files?.count || 0,
+    syllabi: syllabi?.count || 0,
+    lastIndexed: lastIndexed?.last_indexed
+  };
 }
 
 // Single progress tracker
@@ -80,42 +116,88 @@ async function generateAndStoreEmbeddings(
 }
 
 export async function runFullIndex(params: IndexerParams) {
-  const { canvasBaseUrl, accessToken } = params;
-  logger.info('🚀 Starting full index run...');
-
+  const { canvasBaseUrl, accessToken, forceRefresh = false, maxAgeHours = 6 } = params;
+  
   // Ensure database is initialized
   await initDatabase();
+  
+  // Check existing data
+  const stats = await getDatabaseStats();
+  
+  if (!forceRefresh && stats.courses > 0) {
+    if (stats.lastIndexed) {
+      const lastIndexedDate = new Date(stats.lastIndexed);
+      const ageHours = (Date.now() - lastIndexedDate.getTime()) / (1000 * 60 * 60);
+      
+      if (ageHours < maxAgeHours) {
+        logger.info(`📊 Database is fresh (last indexed ${ageHours.toFixed(1)} hours ago)`);
+        logger.info(`📈 Current stats: ${stats.courses} courses, ${stats.assignments} assignments, ${stats.files} files, ${stats.syllabi} syllabi`);
+        logger.info(`⏭️  Skipping indexing. Use forceRefresh=true to override.`);
+        return;
+      }
+    }
+  }
+  
+  logger.info('🚀 Starting smart index run...');
+  
+  if (forceRefresh) {
+    logger.info('🔄 Force refresh mode - will update all content');
+  } else {
+    logger.info(`⏰ Updating content older than ${maxAgeHours} hours`);
+  }
 
   // 1. Fetch all active courses
   const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'active' });
-  logger.info(`📚 Found ${courses.length} active courses to index.`);
+  logger.info(`📚 Found ${courses.length} active courses to process.`);
 
-  // Clear old embeddings for all courses being indexed
-  await (await getDb()).run(`DELETE FROM embeddings WHERE course_id IN (${courses.map(c => `'${c.id}'`).join(',')})`);
+  // 2. Filter courses that need updating
+  const coursesToUpdate: CourseInfo[] = [];
+  
+  if (forceRefresh) {
+    coursesToUpdate.push(...courses);
+  } else {
+    for (const course of courses) {
+      const isFresh = await isDataFresh(course.id, maxAgeHours);
+      if (!isFresh) {
+        coursesToUpdate.push(course);
+      }
+    }
+  }
+  
+  if (coursesToUpdate.length === 0) {
+    logger.info('✅ All course data is up to date. No indexing needed.');
+    return;
+  }
+  
+  logger.info(`🔄 Will update ${coursesToUpdate.length} out of ${courses.length} courses`);
 
-  // 2. Count all items first for accurate progress tracking
-  // Silently count items without showing messages
+  // Clear old embeddings for courses being updated
+  if (coursesToUpdate.length > 0) {
+    await (await getDb()).run(`DELETE FROM embeddings WHERE course_id IN (${coursesToUpdate.map(c => `'${c.id}'`).join(',')})`);
+  }
+
+  // 3. Count items to update for progress tracking
   let totalAssignments = 0;
   let totalFiles = 0;
   
-  for (const course of courses) {
+  for (const course of coursesToUpdate) {
     try {
       const assignments = await listAssignments({ canvasBaseUrl, accessToken, courseId: course.id });
       totalAssignments += assignments.length;
     } catch (e) {
-      // Continue counting other courses
+      // Continue counting
     }
     
     try {
       const files = await searchFiles({ canvasBaseUrl, accessToken, courseId: course.id });
       totalFiles += files.length;
     } catch (e) {
-      // Continue counting other courses
+      // Continue counting
     }
   }
 
-  // Total items = syllabi (1 per course) + all assignments + all files
-  const totalItems = courses.length + totalAssignments + totalFiles;
+  // Total items = syllabi + assignments + files for courses being updated
+  const totalItems = coursesToUpdate.length + totalAssignments + totalFiles;
   let currentItem = 0;
 
   const progress: ProgressTracker = {
@@ -124,8 +206,8 @@ export async function runFullIndex(params: IndexerParams) {
     currentTask: 'Starting...'
   };
 
-  // 3. Process everything with single progress bar
-  for (const course of courses) {
+  // 4. Process only courses that need updating
+  for (const course of coursesToUpdate) {
     await upsertCourse(course);
 
     // Process syllabus
@@ -220,5 +302,7 @@ export async function runFullIndex(params: IndexerParams) {
   logProgress(progress);
   process.stderr.write('\n');
   
-  logger.info('✅ Full index run completed.');
+  const finalStats = await getDatabaseStats();
+  logger.info(`✅ Smart index completed! Updated ${coursesToUpdate.length} courses.`);
+  logger.info(`📈 Final stats: ${finalStats.courses} courses, ${finalStats.assignments} assignments, ${finalStats.files} files, ${finalStats.syllabi} syllabi`);
 } 

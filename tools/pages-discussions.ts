@@ -27,7 +27,8 @@ export interface PageInfo {
 export interface PageContentParams {
   canvasBaseUrl: string;
   accessToken: string;
-  courseId: string;
+  courseId?: string;
+  courseName?: string;
   pageUrl?: string;
   pageId?: string;
 }
@@ -55,7 +56,8 @@ export interface DiscussionInfo {
 export interface DiscussionContentParams {
   canvasBaseUrl: string;
   accessToken: string;
-  courseId: string;
+  courseId?: string;
+  courseName?: string;
   discussionId: string;
   includeReplies?: boolean;
 }
@@ -137,7 +139,7 @@ export async function listPages(params: PagesListParams): Promise<PageInfo[]> {
  * Get the content of a specific page
  */
 export async function getPageContent(params: PageContentParams): Promise<{ title: string; body: string, url: string }> {
-  const { canvasBaseUrl, accessToken, courseId, pageUrl, pageId } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, pageUrl, pageId } = params;
   
   if (!pageUrl && !pageId) {
     throw new Error('Either pageUrl or pageId must be provided.');
@@ -146,6 +148,20 @@ export async function getPageContent(params: PageContentParams): Promise<{ title
   const pageIdentifier = pageId || (pageUrl ? extractPageIdentifier(pageUrl) : '');
 
   try {
+    // Resolve courseName to courseId if needed
+    if (!courseId && courseName) {
+      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
+      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      if (!matchedCourse) {
+        throw new Error(`Could not find a course with the name "${courseName}".`);
+      }
+      courseId = matchedCourse.id;
+    }
+
+    if (!courseId) {
+      throw new Error('Could not determine course ID.');
+    }
+
     const response = await fetch(`${canvasBaseUrl}/api/v1/courses/${courseId}/pages/${pageIdentifier}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -246,13 +262,26 @@ export async function listDiscussions(params: DiscussionsListParams): Promise<Di
  * Get the content of a specific discussion topic
  */
 export async function getDiscussionContent(params: DiscussionContentParams): Promise<{ title: string; message: string; url: string; replies?: any[] }> {
-  const { canvasBaseUrl, accessToken, courseId, discussionId, includeReplies = true } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, discussionId, includeReplies = true } = params;
   
   try {
+    if (!courseId && courseName) {
+      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
+      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      if (!matchedCourse) {
+        throw new Error(`Could not find a course with the name "${courseName}".`);
+      }
+      courseId = matchedCourse.id;
+    }
+
+    if (!courseId) {
+      throw new Error('Could not determine course ID.');
+    }
+    
     const apiPath = `/api/v1/courses/${courseId}/discussion_topics/${discussionId}`;
     const queryParams: Record<string, any> = {};
     if (includeReplies) {
-      queryParams.include = ['view'];
+      queryParams.include = ['all_dates', 'sections', 'sections_user_count', 'overrides'];
     }
 
     const response = await fetch(`${canvasBaseUrl}${apiPath}?${new URLSearchParams(queryParams)}`, {
@@ -273,10 +302,23 @@ export async function getDiscussionContent(params: DiscussionContentParams): Pro
       url: discussionData.html_url,
     };
     
-    if (includeReplies && discussionData.view) {
-      // The view contains a tree of replies. We can process this if needed.
-      // For now, just indicate that replies are included.
-      result.replies = discussionData.view;
+    // Try to get replies using the discussion entries API
+    if (includeReplies) {
+      try {
+        const entriesResponse = await fetch(`${canvasBaseUrl}/api/v1/courses/${courseId}/discussion_topics/${discussionId}/entries?per_page=100`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        
+        if (entriesResponse.ok) {
+          const entries = await entriesResponse.json();
+          result.replies = entries;
+        }
+      } catch (error) {
+        // If entries fetch fails, continue without replies
+        logger.info(`Could not fetch discussion entries: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
     
     return result;
