@@ -51,6 +51,7 @@ export async function initDatabase() {
       id TEXT PRIMARY KEY,
       course_id TEXT,
       name TEXT,
+      updated_at TEXT,
       data TEXT, -- Store the full FileInfo object as JSON
       content TEXT, -- Store the full file content
       last_indexed DATETIME,
@@ -60,6 +61,7 @@ export async function initDatabase() {
       course_id TEXT PRIMARY KEY,
       body TEXT,
       url TEXT,
+      content_hash TEXT,
       last_indexed DATETIME,
       FOREIGN KEY(course_id) REFERENCES courses(id)
     );`,

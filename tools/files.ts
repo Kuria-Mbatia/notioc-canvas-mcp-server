@@ -65,6 +65,7 @@ export interface FileInfo {
   id: string;
   name: string;
   url: string;
+  updatedAt: string | null;
   moduleName: string | null;
   similarity?: number; // Added for search results
 }
@@ -120,6 +121,7 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
         id: String(file.id),
         name: file.display_name,
         url: file.url,
+        updatedAt: file.updated_at,
         moduleName: 'Course Files', // Assign a default module name
       })));
     } catch (e) {
@@ -146,6 +148,7 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
                   id: String(item.content_id),
                   name: item.title,
                   url: item.html_url,
+                  updatedAt: item.updated_at,
                   moduleName: module.name,
                 });
               }
@@ -221,6 +224,7 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
         id: String(fileData.id),
         name: fileData.display_name,
         url: fileData.url,
+        updatedAt: fileData.updated_at,
         moduleName: null
       };
     } else if (fileName) {

@@ -15,7 +15,7 @@ import dotenv from 'dotenv';
 
 // Import our Canvas tools
 import { listCourses, CourseListParams } from '../tools/courses.js';
-import { listAssignments, getAssignmentWithFiles, AssignmentListParams } from '../tools/assignments.js';
+import { listAssignments, getAssignmentDetails, AssignmentListParams } from '../tools/assignments.js';
 import { searchFiles, getFileContent, readFileById, FileSearchParams, FileContentParams } from '../tools/files.js';
 import { 
   listPages, getPageContent, 
@@ -445,8 +445,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
         {
-          name: 'get_homework',
-          description: 'Get a specific homework assignment with all its associated files and content. Can find homework by name, number, or course context.',
+          name: 'get_assignment_details',
+          description: 'Gets the full details for a single assignment, including the description, due date, points, and a list of all associated files. Use this after finding an assignment with get_assignments.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -458,9 +458,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 type: 'string',
                 description: 'The course name (e.g., "Math 451", "CMPEN 431"). If provided, courseId is not required.',
               },
-              homeworkName: {
+              assignmentName: {
                 type: 'string',
-                description: 'The homework assignment name or number (e.g., "Homework 3", "HW3", "Assignment 1"). If not provided, will find the most recent homework.',
+                description: 'The full name of the assignment (e.g., "Project 2: Human Behavior Insights to Sustainable Arts and Design").',
               },
               includeFileContent: {
                 type: 'boolean',
@@ -747,52 +747,17 @@ Knowledge Graph for: **${graph.courseName}**
         };
       }
 
-        case 'get_homework': {
+        case 'get_assignment_details': {
           const inputParams = input as any;
-          let homeworkName = inputParams.homeworkName;
+          let assignmentName = inputParams.assignmentName;
           let courseName = inputParams.courseName;
           let courseId = inputParams.courseId;
           
-          // If no course is specified, try to infer from context or recent activity
-          if (!courseId && !courseName) {
-            // For now, we'll require at least a course to be specified
-            throw new Error('Please specify either courseId or courseName to search for homework assignments.');
-          }
-          
-          // If no homework name is provided, look for recent homework assignments
-          if (!homeworkName) {
-            // Get all assignments and find homework-like ones
-            const allAssignments = await listAssignments({
-              ...getCanvasConfig(),
-              courseId,
-              courseName
-            });
-            
-            // Filter for homework assignments (containing "hw", "homework", or "assignment")
-            const homeworkAssignments = allAssignments.filter(assignment => 
-              /\b(hw|homework|assignment)\s*\d+/i.test(assignment.name)
-            );
-            
-            if (homeworkAssignments.length === 0) {
-              throw new Error('No homework assignments found in this course.');
-            }
-            
-            // Sort by due date or name and take the most recent
-            homeworkAssignments.sort((a, b) => {
-              if (a.dueAt && b.dueAt) {
-                return new Date(b.dueAt).getTime() - new Date(a.dueAt).getTime();
-              }
-              return b.name.localeCompare(a.name);
-            });
-            
-            homeworkName = homeworkAssignments[0].name;
-          }
-          
-          const homework = await getAssignmentWithFiles({
+          const homework = await getAssignmentDetails({
             ...getCanvasConfig(),
             courseId,
             courseName,
-            assignmentName: homeworkName
+            assignmentName: assignmentName
           });
           
           let markdown = `# ${homework.name}\n\n`;
@@ -899,8 +864,7 @@ Knowledge Graph for: **${graph.courseName}**
         
         // Extract assignment/homework patterns
         const assignmentMatches = [
-          /(?:homework|hw)\s*(\d+)/i,
-          /(?:assignment|assign)\s*(\d+)/i,
+          /(?:homework|hw|project|proj|assignment|assign)\s*(\d+)/i,
           /(hw\d+)/i
         ];
         
@@ -915,7 +879,7 @@ Knowledge Graph for: **${graph.courseName}**
         // If we found course and assignment info, use get_homework
         if (courseName && assignmentName) {
           try {
-            const homework = await getAssignmentWithFiles({
+            const homework = await getAssignmentDetails({
               ...getCanvasConfig(),
               courseName,
               assignmentName

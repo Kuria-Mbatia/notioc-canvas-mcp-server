@@ -276,8 +276,8 @@ paths:
   /courses/{courseId}/assignments:
     get:
       operationId: getting_assignments
-      summary: Get assignments for a specific Canvas course
-      description: Retrieve all assignments in a specific Canvas course.
+      summary: Get all assignments for a course, including their descriptions
+      description: Retrieve all assignments in a specific Canvas course, including their full text descriptions.
       parameters:
         - name: courseId
           in: path
@@ -321,6 +321,69 @@ paths:
                           type: array
                           items:
                             type: string
+                  message:
+                    type: string
+
+  /courses/{courseId}/assignment:
+    get:
+      operationId: getting_assignment
+      summary: Get a specific assignment by name
+      description: Retrieve the full details of a single assignment, including its description and a list of all associated files (attachments and embedded links). This is the best tool for getting the text of an assignment.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Canvas course ID
+        - name: assignmentName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The name of the assignment to retrieve.
+      responses:
+        '200':
+          description: Successfully retrieved the assignment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  assignment:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      dueAt:
+                        type: string
+                      pointsPossible:
+                        type: number
+                      submissionTypes:
+                        type: array
+                        items:
+                          type: string
+                      htmlUrl:
+                        type: string
+                      allFiles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            url:
+                              type: string
+                            source:
+                              type: string
                   message:
                     type: string
 

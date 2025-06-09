@@ -7,6 +7,7 @@ import { listAssignments, AssignmentInfo } from '../tools/assignments.js';
 import { searchFiles, getFileContent, FileInfo } from '../tools/files.js';
 import { logger } from './logger.js';
 import { generateEmbedding, splitIntoChunks } from './vectorize.js';
+import crypto from 'crypto';
 
 export interface IndexerParams {
   canvasBaseUrl: string;
@@ -117,7 +118,7 @@ async function generateAndStoreEmbeddings(
 
 export async function runFullIndex(params: IndexerParams) {
   const { canvasBaseUrl, accessToken, forceRefresh = false, maxAgeHours = 6 } = params;
-  
+
   // Ensure database is initialized
   await initDatabase();
   
@@ -218,16 +219,27 @@ export async function runFullIndex(params: IndexerParams) {
     try {
         const syllabus = await getCourseSyllabus({ canvasBaseUrl, accessToken, courseId: course.id });
         const db = await getDb();
-        await db.run(
-            'INSERT INTO syllabus (course_id, body, url, last_indexed) VALUES (?, ?, ?, ?) ON CONFLICT(course_id) DO UPDATE SET body=excluded.body, url=excluded.url, last_indexed=excluded.last_indexed',
-            course.id,
-            syllabus.body,
-            syllabus.url,
-            new Date().toISOString()
-        );
         
-        if (syllabus.body) {
-          await generateAndStoreEmbeddings(course.id, course.id, 'syllabus', syllabus.body);
+        // Check if syllabus content has changed using a hash
+        const currentSyllabus = await db.get('SELECT content_hash FROM syllabus WHERE course_id = ?', course.id);
+        const newHash = syllabus.body ? crypto.createHash('sha256').update(syllabus.body).digest('hex') : null;
+
+        if (!currentSyllabus || currentSyllabus.content_hash !== newHash) {
+            await db.run(
+                'INSERT INTO syllabus (course_id, body, url, content_hash, last_indexed) VALUES (?, ?, ?, ?, ?) ON CONFLICT(course_id) DO UPDATE SET body=excluded.body, url=excluded.url, content_hash=excluded.content_hash, last_indexed=excluded.last_indexed',
+                course.id,
+                syllabus.body,
+                syllabus.url,
+                newHash,
+                new Date().toISOString()
+            );
+            
+            if (syllabus.body) {
+              await generateAndStoreEmbeddings(course.id, course.id, 'syllabus', syllabus.body);
+            }
+            progress.currentTask = `Syllabus: ${shortCourseName} (updated)`;
+        } else {
+            progress.currentTask = `Syllabus: ${shortCourseName} (skipped)`;
         }
     } catch (e: any) {
         // Silently continue
@@ -240,23 +252,31 @@ export async function runFullIndex(params: IndexerParams) {
     try {
         const assignments = await listAssignments({ canvasBaseUrl, accessToken, courseId: course.id });
         const db = await getDb();
+        const existingAssignments = new Map((await db.all('SELECT id FROM assignments WHERE course_id = ?', course.id)).map(a => [a.id, true]));
+        let updatedCount = 0;
         
         for (const assignment of assignments) {
-            const shortAssignmentName = assignment.name.length > 30 ? assignment.name.substring(0, 30) + '...' : assignment.name;
-            progress.currentTask = `Assignment: ${shortAssignmentName}`;
+            progress.currentTask = `Assignment: ${assignment.name.substring(0, 30)}...`;
             logProgress(progress);
-            
-            await db.run(
-                'INSERT INTO assignments (id, course_id, name, data, last_indexed) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, last_indexed=excluded.last_indexed',
-                assignment.id,
-                course.id,
-                assignment.name,
-                JSON.stringify(assignment),
-                new Date().toISOString()
-            );
-            await generateAndStoreEmbeddings(course.id, assignment.id, 'assignment', assignment.description);
+
+            if (!existingAssignments.has(assignment.id)) {
+                await db.run(
+                    'INSERT INTO assignments (id, course_id, name, data, last_indexed) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, last_indexed=excluded.last_indexed',
+                    assignment.id,
+                    course.id,
+                    assignment.name,
+                    JSON.stringify(assignment),
+                    new Date().toISOString()
+                );
+                await generateAndStoreEmbeddings(course.id, assignment.id, 'assignment', assignment.description);
+                updatedCount++;
+            }
             
             progress.current = ++currentItem;
+            logProgress(progress);
+        }
+        if (updatedCount > 0) {
+            progress.currentTask = `Assignments: ${shortCourseName} (${updatedCount} updated, ${assignments.length - updatedCount} skipped)`;
             logProgress(progress);
         }
     } catch (e: any) {
@@ -267,29 +287,39 @@ export async function runFullIndex(params: IndexerParams) {
     try {
         const files = await searchFiles({ canvasBaseUrl, accessToken, courseId: course.id });
         const db = await getDb();
-        
+        const existingFiles = new Map((await db.all('SELECT id, updated_at FROM files WHERE course_id = ?', course.id)).map(f => [f.id, f.updated_at]));
+        let updatedCount = 0;
+
         for (const file of files) {
-            const shortFileName = file.name.length > 25 ? file.name.substring(0, 25) + '...' : file.name;
-            progress.currentTask = `File: ${shortFileName}`;
+            progress.currentTask = `File: ${file.name.substring(0, 25)}...`;
             logProgress(progress);
-            
-            try {
-                const fileWithContent = await getFileContent({ canvasBaseUrl, accessToken, courseId: course.id, fileId: file.id });
-                await db.run(
-                    'INSERT INTO files (id, course_id, name, data, content, last_indexed) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, content=excluded.content, last_indexed=excluded.last_indexed',
-                    file.id,
-                    course.id,
-                    file.name,
-                    JSON.stringify(file),
-                    fileWithContent.content,
-                    new Date().toISOString()
-                );
-                await generateAndStoreEmbeddings(course.id, file.id, 'file', fileWithContent.content);
-            } catch (e: any) {
-                // Continue with next file
+
+            if (!existingFiles.has(file.id) || (file.updatedAt && existingFiles.get(file.id) < file.updatedAt)) {
+                try {
+                    const fileWithContent = await getFileContent({ canvasBaseUrl, accessToken, courseId: course.id, fileId: file.id });
+                    await db.run(
+                        'INSERT INTO files (id, course_id, name, updated_at, data, content, last_indexed) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at, data=excluded.data, content=excluded.content, last_indexed=excluded.last_indexed',
+                        file.id,
+                        course.id,
+                        file.name,
+                        file.updatedAt,
+                        JSON.stringify(file),
+                        fileWithContent.content,
+                        new Date().toISOString()
+                    );
+                    await generateAndStoreEmbeddings(course.id, file.id, 'file', fileWithContent.content);
+                    updatedCount++;
+                } catch (e: any) {
+                    // Continue with next file
+                }
             }
             
             progress.current = ++currentItem;
+            logProgress(progress);
+        }
+
+        if (updatedCount > 0) {
+            progress.currentTask = `Files: ${shortCourseName} (${updatedCount} updated, ${files.length - updatedCount} skipped)`;
             logProgress(progress);
         }
     } catch (e: any) {

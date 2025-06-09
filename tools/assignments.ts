@@ -171,8 +171,8 @@ export async function listAssignments(params: AssignmentListParams): Promise<Ass
   }
 }
 
-// New function to get a specific assignment with all its files
-export async function getAssignmentWithFiles(params: {
+// Get the full details and content for a specific assignment
+export async function getAssignmentDetails(params: {
   canvasBaseUrl: string;
   accessToken: string;
   courseId?: string;
