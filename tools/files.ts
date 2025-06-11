@@ -26,7 +26,6 @@ async function initializePdfParse() {
     // console.log('📄 PDF parsing enabled');
     return pdfParse;
   } catch (error) {
-    console.error('❌ Could not load pdf-parse:', error);
     return null;
   }
 }
@@ -250,107 +249,53 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
     });
 
     if (!fileResponse.ok) {
-      // If direct download fails, try getting a download URL first
-      try {
-        const downloadUrlResponse = await fetch(`${canvasBaseUrl}/api/v1/files/${fileToFetch.id}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        });
-        
-        if (downloadUrlResponse.ok) {
-          const fileInfo = await downloadUrlResponse.json();
-          const secondAttempt = await fetch(fileInfo.url, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-            redirect: 'follow'
-          });
-          
-          if (secondAttempt.ok) {
-            const contentType = secondAttempt.headers.get('content-type');
-            let content = await handleFileContent(secondAttempt, contentType);
-            
-            return {
-              name: fileToFetch.name,
-              content,
-              url: fileInfo.url
-            };
-          }
-        }
-      } catch (retryError) {
-        // Fall through to original error
-      }
-      
-      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
+      throw new Error(`Failed to download file from ${fileToFetch.url}. Status: ${fileResponse.statusText}`);
     }
 
     const contentType = fileResponse.headers.get('content-type');
-    let content = await handleFileContent(fileResponse, contentType);
+    const content = await handleFileContent(fileResponse, contentType);
 
-    return {
-      name: fileToFetch.name,
+    return { 
+      name: fileToFetch.name, 
       content,
-      url: fileToFetch.url
+      url: fileToFetch.url // Include the URL for reference
     };
 
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to get file content: ${error.message}`);
+      throw new Error(`Failed to get content: ${error.message}`);
     } else {
-      throw new Error('Failed to get file content: Unknown error');
+      throw new Error('Failed to get content: Unknown error');
     }
   }
 }
 
 // Helper function to handle different file content types
 async function handleFileContent(response: Response, contentType: string | null): Promise<string> {
-  if (contentType && contentType.includes('text')) {
-    return await response.text();
-  } else if (contentType && contentType.includes('pdf')) {
+  // Suppress log message to keep progress bar clean
+  // console.log(`Handling file content with type: ${contentType}`);
+  
+  if (contentType?.includes('application/pdf')) {
     const pdfParser = await initializePdfParse();
     if (pdfParser) {
       try {
-        const dataBuffer = await response.arrayBuffer();
-        
-        // Aggressively suppress all console output during PDF parsing
-        const originalStdout = process.stdout.write;
-        const originalStderr = process.stderr.write;
-        const originalWarn = console.warn;
-        const originalLog = console.log;
-        const originalError = console.error;
-        
-        // Redirect all output to nothing during PDF parsing
-        process.stdout.write = () => true;
-        process.stderr.write = () => true;
-        console.warn = () => {};
-        console.log = () => {};
-        console.error = () => {};
-        
-        try {
-          const data = await pdfParser(Buffer.from(dataBuffer));
-          return data.text;
-        } finally {
-          // Restore all console methods
-          process.stdout.write = originalStdout;
-          process.stderr.write = originalStderr;
-          console.warn = originalWarn;
-          console.log = originalLog;
-          console.error = originalError;
-        }
-      } catch (error) {
-        // Only show critical errors, not PDF parsing warnings
-        return `PDF file detected but could not be parsed. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        const buffer = await response.arrayBuffer();
+        const data = await pdfParser(buffer);
+        return data.text;
+      } catch (err) {
+        return "[Error extracting text from PDF]";
       }
     } else {
-      return `File is a PDF but PDF parsing is not available. You can download it from: ${response.url}`;
+      return "[PDF parsing is not available]";
     }
-  } else if (contentType && (contentType.includes('application/json') || contentType.includes('application/javascript'))) {
+  } else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('text/html') || contentType?.includes('application/json')) {
     return await response.text();
   } else {
-    // For other binary types, we can't do much yet
-    const url = response.url;
-    return `File content is binary (${contentType}) and cannot be displayed as text. You can download it from: ${url}`;
+    // Fallback for other file types like .docx, .pptx etc.
+    // In a real scenario, you might use other libraries or just provide a download link.
+    // For now, we'll indicate that content extraction is not supported for this type.
+    const fileType = contentType || 'unknown type';
+    return `[Binary file of type: ${fileType}. Content extraction not yet supported for this file type.]`;
   }
 }
 
@@ -387,17 +332,16 @@ export async function readFileById(params: { canvasBaseUrl: string; accessToken:
     const contentType = fileResponse.headers.get('content-type');
     const content = await handleFileContent(fileResponse, contentType);
 
-    return {
-      name: fileInfo.display_name || fileInfo.filename || `File ${fileId}`,
+    return { 
+      name: fileInfo.display_name, 
       content,
       url: fileInfo.url
     };
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to read file by ID: ${error.message}`);
     } else {
-      throw new Error('Failed to read file by ID: Unknown error');
+      throw new Error('Unknown error reading file by ID.');
     }
   }
 }

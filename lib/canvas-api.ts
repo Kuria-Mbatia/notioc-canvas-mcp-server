@@ -153,6 +153,13 @@ export interface CanvasModule {
   items_count?: number;
   items_url?: string;
   items?: CanvasModuleItem[];
+  unlock_at?: string;
+  require_sequential_progress?: boolean;
+  prerequisite_module_ids?: string[];
+  state?: string;
+  completed_at?: string;
+  publish_final_grade?: boolean;
+  published?: boolean;
 }
 
 export interface CanvasModuleItem {
@@ -165,7 +172,24 @@ export interface CanvasModuleItem {
   page_url?: string;
   external_url?: string;
   new_tab?: boolean;
-  completion_requirement?: any;
+  completion_requirement?: {
+    type: string;
+    min_score?: number;
+    completed?: boolean;
+  };
+  position?: number;
+  indent?: number;
+  content_details?: {
+    points_possible?: number;
+    due_at?: string;
+    unlock_at?: string;
+    lock_at?: string;
+    locked_for_user?: boolean;
+    lock_explanation?: string;
+    lock_info?: any;
+  };
+  mastery_paths?: any;
+  published?: boolean;
 }
 
 export interface CanvasPage {

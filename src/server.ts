@@ -23,6 +23,31 @@ import {
   PagesListParams, PageContentParams,
   DiscussionsListParams, DiscussionContentParams
 } from '../tools/pages-discussions.js';
+import { postDiscussionReply, replyToDiscussionEntry, PostDiscussionReplyParams } from '../tools/discussions.js';
+import { 
+  createConversation, replyToConversation, listConversations, getConversationDetails,
+  SendMessageParams, ReplyToConversationParams, ListConversationsParams
+} from '../tools/messages.js';
+import { 
+  findPeopleInCourse, searchRecipients, getUserProfile, getMyProfile,
+  FindPeopleParams, SearchRecipientsParams
+} from '../tools/users.js';
+import { listQuizzes, getQuizDetails, getQuizSubmissions, ListQuizzesParams, QuizDetailsParams, QuizSubmissionsParams } from '../tools/quizzes.js';
+import { listModules, getModuleItems, getModuleDetails, ListModulesParams, ModuleItemsParams } from '../tools/modules.js';
+import { 
+  analyzeStudentPersona, getPersonalizedContext, generatePersonalizedResponse,
+  recordInteraction, updateAcademicContext, getStudentProfile
+} from '../tools/persona-system.js';
+import { 
+  assessStudentRisk, predictStudentSuccess, forecastStudentEngagement,
+  recordIntervention, updateInterventionOutcome, getStudentAnalytics
+} from '../tools/predictive-analytics.js';
+import { 
+  relationshipIntelligenceTools, handleRelationshipIntelligenceTool
+} from '../tools/relationship-intelligence.js';
+import { 
+  progressTrackerTools, handleProgressTrackerTool
+} from '../tools/progress-tracker.js';
 import { getKnowledgeGraph } from '../tools/knowledge.js';
 import { generateQAPrompt } from '../tools/prompts.js';
 import { runFullIndex } from '../lib/indexer.js';
@@ -523,6 +548,761 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             required: ['fileId'],
           },
         },
+        {
+          name: 'post_discussion_reply',
+          description: 'Post a reply to a Canvas discussion topic. This allows you to participate in course discussions.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              topicId: {
+                type: 'string',
+                description: 'The Canvas discussion topic ID',
+              },
+              message: {
+                type: 'string',
+                description: 'The message content to post',
+              },
+              attachmentIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of Canvas file IDs to attach',
+              }
+            },
+            required: ['topicId', 'message'],
+          },
+        },
+        {
+          name: 'reply_to_discussion_entry',
+          description: 'Reply to a specific entry in a Canvas discussion (threaded reply).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              topicId: {
+                type: 'string',
+                description: 'The Canvas discussion topic ID',
+              },
+              parentEntryId: {
+                type: 'string',
+                description: 'The ID of the discussion entry to reply to',
+              },
+              message: {
+                type: 'string',
+                description: 'The message content to post',
+              },
+              attachmentIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of Canvas file IDs to attach',
+              }
+            },
+            required: ['topicId', 'parentEntryId', 'message'],
+          },
+        },
+        {
+          name: 'send_message',
+          description: 'Create a new Canvas conversation and send the initial message.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              recipientIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of Canvas user IDs to send the message to',
+              },
+              subject: {
+                type: 'string',
+                description: 'Subject line for the conversation',
+              },
+              body: {
+                type: 'string',
+                description: 'Message body content',
+              },
+              contextCode: {
+                type: 'string',
+                description: 'Optional context code (e.g., "course_123") to associate with a course',
+              },
+              attachmentIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of Canvas file IDs to attach',
+              }
+            },
+            required: ['recipientIds', 'subject', 'body'],
+          },
+        },
+        {
+          name: 'reply_to_conversation',
+          description: 'Reply to an existing Canvas conversation.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              conversationId: {
+                type: 'string',
+                description: 'The Canvas conversation ID',
+              },
+              body: {
+                type: 'string',
+                description: 'Message body content',
+              },
+              attachmentIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of Canvas file IDs to attach',
+              },
+              includedMessages: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of message IDs to include in the reply',
+              }
+            },
+            required: ['conversationId', 'body'],
+          },
+        },
+        {
+          name: 'list_conversations',
+          description: 'List Canvas conversations (inbox messages).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              scope: {
+                type: 'string',
+                enum: ['inbox', 'sent', 'archived', 'unread'],
+                description: 'Filter conversations by scope (default: inbox)',
+                default: 'inbox'
+              },
+              filter: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional filter terms',
+              },
+              filterMode: {
+                type: 'string',
+                enum: ['and', 'or'],
+                description: 'How to apply filters (default: and)',
+                default: 'and'
+              }
+            },
+          },
+        },
+        {
+          name: 'get_conversation_details',
+          description: 'Get details of a specific Canvas conversation including all messages.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              conversationId: {
+                type: 'string',
+                description: 'The Canvas conversation ID',
+              },
+              autoMarkAsRead: {
+                type: 'boolean',
+                description: 'Automatically mark the conversation as read (default: true)',
+                default: true
+              },
+              filter: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional filter terms',
+              }
+            },
+            required: ['conversationId'],
+          },
+        },
+        {
+          name: 'find_people',
+          description: 'Find people in a Canvas course to send messages to.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              searchTerm: {
+                type: 'string',
+                description: 'Optional search term to filter users by name',
+              },
+              enrollmentType: {
+                type: 'string',
+                enum: ['student', 'teacher', 'ta', 'observer', 'designer'],
+                description: 'Filter by enrollment type',
+              },
+              enrollmentState: {
+                type: 'string',
+                enum: ['active', 'invited', 'rejected', 'completed', 'inactive'],
+                description: 'Filter by enrollment state (default: active)',
+                default: 'active'
+              }
+            },
+          },
+        },
+        {
+          name: 'search_recipients',
+          description: 'Search for message recipients using Canvas search API. Note: This may be restricted at some institutions.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              search: {
+                type: 'string',
+                description: 'Search term for recipient names',
+              },
+              context: {
+                type: 'string',
+                description: 'Context code (e.g., "course_123") to limit search scope',
+              },
+              exclude: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'User IDs to exclude from results',
+              },
+              type: {
+                type: 'string',
+                enum: ['user', 'context'],
+                description: 'Type of recipients to search for',
+              }
+            },
+          },
+        },
+        {
+          name: 'get_user_profile',
+          description: 'Get profile information for a specific Canvas user.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID (use "self" for your own profile)',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['locale', 'avatar_url', 'permissions', 'email', 'effective_locale', 'bio', 'pronouns']
+                },
+                description: 'Additional information to include',
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'list_quizzes',
+          description: 'List quizzes in a Canvas course.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              searchTerm: {
+                type: 'string',
+                description: 'Optional search term to filter quizzes by title',
+              }
+            },
+          },
+        },
+        {
+          name: 'get_quiz_details',
+          description: 'Get details of a specific Canvas quiz.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              quizId: {
+                type: 'string',
+                description: 'The Canvas quiz ID',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['assignment', 'submissions', 'all_dates', 'permissions']
+                },
+                description: 'Additional information to include',
+              }
+            },
+            required: ['quizId'],
+          },
+        },
+        {
+          name: 'get_quiz_submissions',
+          description: 'Get submissions for a specific Canvas quiz.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              quizId: {
+                type: 'string',
+                description: 'The Canvas quiz ID',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['submission', 'quiz', 'user']
+                },
+                description: 'Additional information to include',
+              }
+            },
+            required: ['quizId'],
+          },
+        },
+        {
+          name: 'list_modules',
+          description: 'List course modules in a Canvas course.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['items', 'content_details']
+                },
+                description: 'Additional information to include (default: items)',
+              },
+              searchTerm: {
+                type: 'string',
+                description: 'Optional search term to filter modules by name',
+              },
+              studentId: {
+                type: 'string',
+                description: 'Optional student ID to get module progress for that student',
+              }
+            },
+          },
+        },
+        {
+          name: 'get_module_items',
+          description: 'Get items for a specific Canvas course module.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              moduleId: {
+                type: 'string',
+                description: 'The Canvas module ID',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['content_details', 'mastery_paths']
+                },
+                description: 'Additional information to include',
+              },
+              searchTerm: {
+                type: 'string',
+                description: 'Optional search term to filter items by title',
+              },
+              studentId: {
+                type: 'string',
+                description: 'Optional student ID to get item progress for that student',
+              }
+            },
+            required: ['moduleId'],
+          },
+        },
+        {
+          name: 'get_module_details',
+          description: 'Get details of a specific Canvas course module.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              moduleId: {
+                type: 'string',
+                description: 'The Canvas module ID',
+              },
+              include: {
+                type: 'array',
+                items: { 
+                  type: 'string',
+                  enum: ['items', 'content_details']
+                },
+                description: 'Additional information to include',
+              },
+              studentId: {
+                type: 'string',
+                description: 'Optional student ID to get module progress for that student',
+              }
+            },
+            required: ['moduleId'],
+          },
+        },
+        // Persona System Tools
+        {
+          name: 'analyze_student_persona',
+          description: 'Analyze a student\'s persona based on their Canvas interactions and update their profile with behavioral insights',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID to analyze',
+              },
+              forceRefresh: {
+                type: 'boolean',
+                description: 'Force a fresh analysis even if a recent persona exists (default: false)',
+                default: false
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'get_personalized_context',
+          description: 'Get personalized context for a student to inform response generation and understand their current academic situation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              contextType: {
+                type: 'string',
+                description: 'The type of context being generated (e.g., "message", "discussion", "email")',
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'generate_personalized_response',
+          description: 'Generate personalized response suggestions based on a student\'s communication style and current context',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              inputText: {
+                type: 'string',
+                description: 'The input text or message to respond to',
+              },
+              responseType: {
+                type: 'string',
+                enum: ['message', 'discussion', 'email'],
+                description: 'The type of response being generated (default: message)',
+                default: 'message'
+              }
+            },
+            required: ['userId', 'inputText'],
+          },
+        },
+        {
+          name: 'record_interaction',
+          description: 'Record a new Canvas interaction for persona learning and analysis',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              interactionType: {
+                type: 'string',
+                enum: ['discussion_post', 'discussion_reply', 'message_sent', 'message_received'],
+                description: 'The type of interaction',
+              },
+              content: {
+                type: 'string',
+                description: 'The content of the interaction',
+              },
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (optional)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (optional)',
+              },
+              recipientIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of recipient user IDs for messages (optional)',
+              },
+              discussionTopicId: {
+                type: 'string',
+                description: 'Discussion topic ID for discussion interactions (optional)',
+              },
+              assignmentContext: {
+                type: 'string',
+                description: 'Assignment context if interaction is related to an assignment (optional)',
+              }
+            },
+            required: ['userId', 'interactionType', 'content'],
+          },
+        },
+        {
+          name: 'update_academic_context',
+          description: 'Update a student\'s academic context for more accurate persona insights',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              currentCourses: {
+                type: 'array',
+                items: { type: 'object' },
+                description: 'Array of current course objects',
+              },
+              upcomingDeadlines: {
+                type: 'array',
+                items: { type: 'object' },
+                description: 'Array of upcoming deadline objects',
+              },
+              recentSubmissions: {
+                type: 'array',
+                items: { type: 'object' },
+                description: 'Array of recent submission objects',
+              },
+              workloadLevel: {
+                type: 'string',
+                enum: ['light', 'moderate', 'heavy', 'overwhelming'],
+                description: 'Current workload level',
+              },
+              strengthAreas: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of academic strength areas',
+              },
+              challengeAreas: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of academic challenge areas',
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'get_student_profile',
+          description: 'Get a comprehensive student profile summary including persona, academic context, and relationships',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        // Predictive Analytics Tools
+        {
+          name: 'assess_student_risk',
+          description: 'Assess a student\'s risk level for academic challenges and generate intervention recommendations',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID to assess',
+              },
+              forceRefresh: {
+                type: 'boolean',
+                description: 'Force a fresh assessment even if a recent one exists (default: false)',
+                default: false
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'predict_student_success',
+          description: 'Predict a student\'s success probability for a specific assignment, quiz, or course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              targetType: {
+                type: 'string',
+                enum: ['assignment', 'course', 'module', 'quiz'],
+                description: 'The type of target to predict success for',
+              },
+              targetId: {
+                type: 'string',
+                description: 'The Canvas ID of the target (assignment ID, course ID, etc.)',
+              }
+            },
+            required: ['userId', 'targetType', 'targetId'],
+          },
+        },
+        {
+          name: 'forecast_student_engagement',
+          description: 'Forecast a student\'s engagement patterns and optimal interaction times',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              period: {
+                type: 'string',
+                enum: ['next_week', 'next_month', 'next_semester'],
+                description: 'The forecast period (default: next_week)',
+                default: 'next_week'
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        {
+          name: 'record_intervention',
+          description: 'Record an intervention attempt for tracking effectiveness',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              },
+              interventionType: {
+                type: 'string',
+                description: 'Type of intervention (e.g., academic_support, engagement_outreach, counseling_referral)',
+              },
+              riskLevelBefore: {
+                type: 'string',
+                enum: ['low', 'medium', 'high', 'critical'],
+                description: 'Risk level before intervention',
+              },
+              riskScoreBefore: {
+                type: 'number',
+                description: 'Risk score before intervention (0-1)',
+              },
+              interventionActions: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of intervention actions taken',
+              }
+            },
+            required: ['userId', 'interventionType', 'riskLevelBefore', 'riskScoreBefore', 'interventionActions'],
+          },
+        },
+        {
+          name: 'update_intervention_outcome',
+          description: 'Update the outcome of a recorded intervention to track effectiveness',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              interventionId: {
+                type: 'string',
+                description: 'The intervention ID returned from record_intervention',
+              },
+              riskLevelAfter: {
+                type: 'string',
+                enum: ['low', 'medium', 'high', 'critical'],
+                description: 'Risk level after intervention',
+              },
+              riskScoreAfter: {
+                type: 'number',
+                description: 'Risk score after intervention (0-1)',
+              },
+              effectivenessScore: {
+                type: 'number',
+                description: 'Effectiveness score (0-1, where 1 is most effective)',
+              },
+              success: {
+                type: 'boolean',
+                description: 'Whether the intervention was successful',
+              },
+              notes: {
+                type: 'string',
+                description: 'Additional notes about the intervention outcome (optional)',
+              }
+            },
+            required: ['interventionId', 'riskLevelAfter', 'riskScoreAfter', 'effectivenessScore', 'success'],
+          },
+        },
+        {
+          name: 'get_student_analytics',
+          description: 'Get comprehensive analytics for a student including risk assessment, engagement forecast, and recommendations',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userId: {
+                type: 'string',
+                description: 'The Canvas user ID',
+              }
+            },
+            required: ['userId'],
+          },
+        },
+        // Relationship Intelligence Tools - Phase 3B
+        ...relationshipIntelligenceTools,
+        // Progress Tracking Tools - Phase 3D
+        ...progressTrackerTools,
     ],
   };
 });
@@ -1046,6 +1826,414 @@ Knowledge Graph for: **${graph.courseName}**
         } catch (error) {
           throw new McpError(ErrorCode.InternalError, `Failed to process file: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+      }
+
+      case 'post_discussion_reply': {
+        const reply = await postDiscussionReply({
+          ...getCanvasConfig(),
+          ...(input as Omit<PostDiscussionReplyParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Discussion reply posted successfully!\n\n**Reply ID:** ${reply.id}\n**Created:** ${new Date(reply.createdAt).toLocaleString()}\n**Message:** ${reply.message}`
+            }
+          ]
+        };
+      }
+
+      case 'reply_to_discussion_entry': {
+        const reply = await replyToDiscussionEntry({
+          ...getCanvasConfig(),
+          ...(input as Omit<PostDiscussionReplyParams & { parentEntryId: string }, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Threaded reply posted successfully!\n\n**Reply ID:** ${reply.id}\n**Parent Entry:** ${reply.parentId}\n**Created:** ${new Date(reply.createdAt).toLocaleString()}\n**Message:** ${reply.message}`
+            }
+          ]
+        };
+      }
+
+      case 'send_message': {
+        const message = await createConversation({
+          ...getCanvasConfig(),
+          ...(input as Omit<SendMessageParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Message sent successfully!\n\n**Conversation ID:** ${message.conversationId}\n**Message ID:** ${message.id}\n**Created:** ${new Date(message.createdAt).toLocaleString()}\n**Recipients:** ${(input as any).recipientIds.length} user(s)`
+            }
+          ]
+        };
+      }
+
+      case 'reply_to_conversation': {
+        const message = await replyToConversation({
+          ...getCanvasConfig(),
+          ...(input as Omit<ReplyToConversationParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Reply sent successfully!\n\n**Conversation ID:** ${message.conversationId}\n**Message ID:** ${message.id}\n**Created:** ${new Date(message.createdAt).toLocaleString()}`
+            }
+          ]
+        };
+      }
+
+      case 'list_conversations': {
+        const conversations = await listConversations({
+          ...getCanvasConfig(),
+          ...(input as Omit<ListConversationsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Subject | Participants | Last Message | Workflow State |\n|---|---|---|---|\n`;
+        conversations.forEach(conv => {
+          const participants = conv.participants.map(p => p.name).join(', ');
+          const lastMessageDate = conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleString() : 'N/A';
+          markdown += `| ${conv.subject} | ${participants} | ${lastMessageDate} | ${conv.workflowState} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_conversation_details': {
+        const conversation = await getConversationDetails({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 💬 Conversation: ${conversation.subject}\n\n`;
+        markdown += `**Participants:** ${conversation.participants.map(p => p.name).join(', ')}\n`;
+        markdown += `**Last Message:** ${conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toLocaleString() : 'N/A'}\n`;
+        markdown += `**Message Count:** ${conversation.messageCount}\n\n`;
+        
+        if (conversation.messages && conversation.messages.length > 0) {
+          markdown += `## Messages\n\n`;
+          conversation.messages.reverse().forEach((msg, index) => {
+            markdown += `### Message ${index + 1}\n`;
+            markdown += `**From:** ${msg.authorName || 'Unknown'}\n`;
+            markdown += `**Date:** ${new Date(msg.createdAt).toLocaleString()}\n\n`;
+            markdown += `${msg.body}\n\n`;
+            if (msg.attachments && msg.attachments.length > 0) {
+              markdown += `**Attachments:** ${msg.attachments.map(att => att.filename).join(', ')}\n\n`;
+            }
+            markdown += `---\n\n`;
+          });
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'find_people': {
+        const users = await findPeopleInCourse({
+          ...getCanvasConfig(),
+          ...(input as Omit<FindPeopleParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| User ID | Name | Email | Enrollment Type |\n|---|---|---|---|\n`;
+        users.forEach(user => {
+          const enrollmentTypes = user.enrollments?.map(e => e.type).join(', ') || 'N/A';
+          markdown += `| ${user.id} | ${user.name} | ${user.email || 'N/A'} | ${enrollmentTypes} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'search_recipients': {
+        const recipients = await searchRecipients({
+          ...getCanvasConfig(),
+          ...(input as Omit<SearchRecipientsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Recipient ID | Name | Common Courses |\n|---|---|---|\n`;
+        recipients.forEach(recipient => {
+          const commonCourses = recipient.commonCourses ? Object.keys(recipient.commonCourses).join(', ') : 'N/A';
+          markdown += `| ${recipient.id} | ${recipient.name} | ${commonCourses} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_user_profile': {
+        const user = await getUserProfile({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 👤 User Profile: ${user.name}\n\n`;
+        markdown += `**User ID:** ${user.id}\n`;
+        if (user.email) markdown += `**Email:** ${user.email}\n`;
+        if (user.pronouns) markdown += `**Pronouns:** ${user.pronouns}\n`;
+        if (user.bio) markdown += `**Bio:** ${user.bio}\n`;
+        if (user.locale) markdown += `**Locale:** ${user.locale}\n`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_quizzes': {
+        const quizzes = await listQuizzes({
+          ...getCanvasConfig(),
+          ...(input as Omit<ListQuizzesParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Quiz ID | Title | Due Date | Points | Question Count | Published |\n|---|---|---|---|---|---|\n`;
+        quizzes.forEach(quiz => {
+          const dueDate = quiz.dueAt ? new Date(quiz.dueAt).toLocaleString() : 'N/A';
+          markdown += `| ${quiz.id} | ${quiz.title} | ${dueDate} | ${quiz.pointsPossible} | ${quiz.questionCount} | ${quiz.published ? '✅' : '❌'} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_quiz_details': {
+        const quiz = await getQuizDetails({
+          ...getCanvasConfig(),
+          ...(input as Omit<QuizDetailsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `# 📝 Quiz: ${quiz.title}\n\n`;
+        if (quiz.description) markdown += `**Description:** ${quiz.description}\n\n`;
+        markdown += `**Quiz ID:** ${quiz.id}\n`;
+        markdown += `**Type:** ${quiz.quizType}\n`;
+        markdown += `**Points Possible:** ${quiz.pointsPossible}\n`;
+        markdown += `**Question Count:** ${quiz.questionCount}\n`;
+        markdown += `**Time Limit:** ${quiz.timeLimit ? `${quiz.timeLimit} minutes` : 'No limit'}\n`;
+        markdown += `**Allowed Attempts:** ${quiz.allowedAttempts === -1 ? 'Unlimited' : quiz.allowedAttempts}\n`;
+        markdown += `**Published:** ${quiz.published ? '✅' : '❌'}\n`;
+        if (quiz.dueAt) markdown += `**Due Date:** ${new Date(quiz.dueAt).toLocaleString()}\n`;
+        if (quiz.unlockAt) markdown += `**Available From:** ${new Date(quiz.unlockAt).toLocaleString()}\n`;
+        if (quiz.lockAt) markdown += `**Available Until:** ${new Date(quiz.lockAt).toLocaleString()}\n`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_quiz_submissions': {
+        const submissions = await getQuizSubmissions({
+          ...getCanvasConfig(),
+          ...(input as Omit<QuizSubmissionsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Submission ID | User ID | Attempt | Score | Started | Finished | State |\n|---|---|---|---|---|---|---|\n`;
+        submissions.forEach(sub => {
+          const score = sub.score !== undefined ? sub.score.toString() : 'N/A';
+          const started = sub.startedAt ? new Date(sub.startedAt).toLocaleString() : 'N/A';
+          const finished = sub.finishedAt ? new Date(sub.finishedAt).toLocaleString() : 'N/A';
+          markdown += `| ${sub.id} | ${sub.userId || 'N/A'} | ${sub.attempt} | ${score} | ${started} | ${finished} | ${sub.workflowState} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_modules': {
+        const modules = await listModules({
+          ...getCanvasConfig(),
+          ...(input as Omit<ListModulesParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Module ID | Name | Position | Items Count | State | Published |\n|---|---|---|---|---|---|\n`;
+        modules.forEach(module => {
+          markdown += `| ${module.id} | ${module.name} | ${module.position} | ${module.itemsCount} | ${module.state || 'N/A'} | ${module.published ? '✅' : '❌'} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_module_items': {
+        const items = await getModuleItems({
+          ...getCanvasConfig(),
+          ...(input as Omit<ModuleItemsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+        
+        let markdown = `| Item ID | Title | Type | Position | Published |\n|---|---|---|---|---|\n`;
+        items.forEach(item => {
+          markdown += `| ${item.id} | ${item.title} | ${item.type} | ${item.position} | ${item.published ? '✅' : '❌'} |\n`;
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_module_details': {
+        const module = await getModuleDetails({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 📚 Module: ${module.name}\n\n`;
+        markdown += `**Module ID:** ${module.id}\n`;
+        markdown += `**Position:** ${module.position}\n`;
+        markdown += `**Items Count:** ${module.itemsCount}\n`;
+        markdown += `**Published:** ${module.published ? '✅' : '❌'}\n`;
+        if (module.unlockAt) markdown += `**Unlock Date:** ${new Date(module.unlockAt).toLocaleString()}\n`;
+        markdown += `**Sequential Progress Required:** ${module.requireSequentialProgress ? '✅' : '❌'}\n`;
+        
+        if (module.items && module.items.length > 0) {
+          markdown += `\n## Module Items\n\n`;
+          markdown += `| Title | Type | Published |\n|---|---|---|\n`;
+          module.items.forEach(item => {
+            markdown += `| ${item.title} | ${item.type} | ${item.published ? '✅' : '❌'} |\n`;
+          });
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      // Persona System Handlers
+      case 'analyze_student_persona': {
+        return await analyzeStudentPersona(input as any);
+      }
+
+      case 'get_personalized_context': {
+        return await getPersonalizedContext(input as any);
+      }
+
+      case 'generate_personalized_response': {
+        return await generatePersonalizedResponse(input as any);
+      }
+
+      case 'record_interaction': {
+        return await recordInteraction(input as any);
+      }
+
+      case 'update_academic_context': {
+        return await updateAcademicContext(input as any);
+      }
+
+      case 'get_student_profile': {
+        return await getStudentProfile(input as any);
+      }
+
+      // Predictive Analytics Tools
+      case 'assess_student_risk': {
+        return await assessStudentRisk(input as any);
+      }
+
+      case 'predict_student_success': {
+        return await predictStudentSuccess(input as any);
+      }
+
+      case 'forecast_student_engagement': {
+        return await forecastStudentEngagement(input as any);
+      }
+
+      case 'record_intervention': {
+        return await recordIntervention(input as any);
+      }
+
+      case 'update_intervention_outcome': {
+        return await updateInterventionOutcome(input as any);
+      }
+
+      case 'get_student_analytics': {
+        return await getStudentAnalytics(input as any);
+      }
+
+      // Relationship Intelligence Tools - Phase 3B
+      case 'analyze_group_dynamics':
+      case 'map_peer_influence':
+      case 'analyze_collaboration_effectiveness':
+      case 'analyze_social_support_network':
+      case 'recommend_group_formation':
+      case 'identify_at_risk_relationships': {
+        return await handleRelationshipIntelligenceTool(req);
+      }
+
+      // Progress Tracking Tools - Phase 3D
+      case 'track_student_progress':
+      case 'analyze_learning_milestones':
+      case 'forecast_performance_trends':
+      case 'manage_student_goals':
+      case 'analyze_study_patterns':
+      case 'generate_progress_insights': {
+        return await handleProgressTrackerTool(req);
       }
 
       default:
