@@ -34,7 +34,6 @@ import {
 } from '../tools/users.js';
 import { listQuizzes, getQuizDetails, getQuizSubmissions, ListQuizzesParams, QuizDetailsParams, QuizSubmissionsParams } from '../tools/quizzes.js';
 import { listModules, getModuleItems, getModuleDetails, ListModulesParams, ModuleItemsParams } from '../tools/modules.js';
-import { runFullIndex } from '../lib/indexer.js';
 
 // Import custom logger that writes to stderr
 import { logger } from '../lib/logger.js';
@@ -48,9 +47,6 @@ const projectRoot = join(__dirname, '../..');
 
 // Load environment variables with explicit path
 dotenv.config({ path: join(projectRoot, '.env') });
-
-// State variable to prevent concurrent indexing
-let isIndexing = false;
 
 // Configuration interface
 interface CanvasConfig {
@@ -70,37 +66,6 @@ function getCanvasConfig(): CanvasConfig {
   }
 
   return { canvasBaseUrl: baseUrl, accessToken };
-}
-
-// Wrapper function to handle indexing with a concurrency lock
-async function handleIndexing(source: 'startup' | 'scheduled' | 'manual', initialConfig?: CanvasConfig, forceRefreshOverride?: boolean) {
-  if (isIndexing) {
-    logger.info(`Indexing already in progress. Skipping ${source} request.`);
-    return;
-  }
-
-  isIndexing = true;
-  logger.info(`Starting indexer (triggered by: ${source})...`);
-  try {
-    const config = initialConfig || getCanvasConfig();
-    logger.info(`Indexer is using Canvas URL: ${config.canvasBaseUrl}`);
-    
-    // Get cache settings from environment
-    const forceRefresh = forceRefreshOverride !== undefined ? forceRefreshOverride : (source === 'manual'); // Manual runs default to force refresh
-    const maxAgeHours = parseInt(process.env.CACHE_MAX_AGE_HOURS || '6', 10);
-    
-    await runFullIndex({ 
-      canvasBaseUrl: config.canvasBaseUrl, 
-      accessToken: config.accessToken,
-      forceRefresh,
-      maxAgeHours
-    });
-    logger.info(`Indexer run (triggered by: ${source}) completed successfully.`);
-  } catch (error) {
-    logger.error(`Indexer run (triggered by: ${source}) failed:`, error);
-  } finally {
-    isIndexing = false;
-  }
 }
 
 function formatDiscussionReplies(replies: any[], level = 0): string {
@@ -142,8 +107,6 @@ async function main() {
     config = getCanvasConfig(); 
     
     logger.info('✅ Canvas configuration loaded successfully.');
-    logger.info('🧠 To enable smart features like Q&A, run the indexer first.');
-    logger.info('   You can do this by running ./test-server.js or calling the "run_indexer" tool from an MCP client.');
 
   } catch (error: any) {
     logger.error('❌ FATAL: Could not start server.', {
@@ -152,25 +115,6 @@ async function main() {
     });
     // Exit gracefully if the config is bad
     return; 
-  }
-
-  // --- Autonomous Indexing Service ---
-  const runOnStartup = process.env.RUN_INDEXER_ON_STARTUP === 'true';
-  const backgroundIndexing = process.env.ENABLE_BACKGROUND_INDEXING === 'true';
-  const intervalHours = parseInt(process.env.INDEXING_INTERVAL_HOURS || '12', 10);
-
-  if (runOnStartup) {
-    // Run async without blocking server startup, with a small delay
-    setTimeout(() => handleIndexing('startup', config), 2000);
-  }
-
-  if (backgroundIndexing) {
-    logger.info(`Background indexing is enabled. Will run every ${intervalHours} hours.`);
-    setInterval(() => {
-      handleIndexing('scheduled');
-    }, intervalHours * 60 * 60 * 1000);
-  } else {
-    logger.info('Background indexing is disabled. Run the indexer manually or via the test script.');
   }
 
   // Use standard I/O for transport
@@ -193,20 +137,6 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
-        {
-          name: 'run_indexer',
-          description: 'Runs the indexer to fetch data from Canvas and store it in the local database. Uses smart caching to avoid re-fetching recent data unless forced.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              forceRefresh: {
-                type: 'boolean',
-                description: 'Force refresh all data even if recently cached (default: true for manual runs)',
-                default: true
-              }
-            },
-          },
-        },
       {
         name: 'get_courses',
         description: 'Get your Canvas courses for the authenticated user',
@@ -956,23 +886,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
     try {
       switch (toolName) {
-        case 'run_indexer': {
-          const inputParams = input as any;
-          const forceRefresh = inputParams.forceRefresh !== false; // Default to true for manual runs
-          handleIndexing('manual', undefined, forceRefresh); // Don't await, let it run in the background
-          
-          const refreshText = forceRefresh ? ' (force refresh mode)' : ' (smart caching mode)';
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Indexer has been started manually${refreshText}. It will run in the background. Check server logs for progress.`
-              }
-            ]
-          };
-        }
-
-      case 'get_courses': {
+        case 'get_courses': {
           const courses = await listCourses({
             ...getCanvasConfig(),
             ...(input as Omit<CourseListParams, 'canvasBaseUrl' | 'accessToken'>)

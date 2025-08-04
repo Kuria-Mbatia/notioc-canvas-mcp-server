@@ -7,11 +7,7 @@ import dotenv from 'dotenv';
 import { listCourses } from './dist/tools/courses.js';
 import { listAssignments } from './dist/tools/assignments.js';
 import { searchFiles } from './dist/tools/files.js';
-import { getDashboardSummary } from './dist/tools/dashboard.js';
-import { getKnowledgeGraph } from './dist/tools/knowledge.js';
 import { createMCP } from './dist/lib/mcp.js';
-import { generateQAPrompt } from './dist/tools/prompts.js';
-import { runFullIndex } from './dist/lib/indexer.js';
 
 // Load environment variables
 dotenv.config();
@@ -121,80 +117,11 @@ async function testMcpServer() {
       console.log('');
     }
 
-    // Test 4: Get Dashboard Summary
-    console.log('📊 Test 4: Get Dashboard Summary');
-    try {
-      const summary = await getDashboardSummary({
-        canvasBaseUrl: baseUrl,
-        accessToken: accessToken,
-      });
-      console.log(`✅ Found ${summary.upcomingAssignments.length} upcoming assignments.`);
-      console.log(`✅ Found ${summary.unreadAnnouncements.length} unread announcements.`);
-    } catch (error) {
-      console.log(`⚠️  Could not get dashboard summary: ${error.message}`);
-    }
-    console.log('');
-
-    // Test 5: Run the indexer to populate the local DB
-    console.log('💾 Test 5: Run full data indexer');
-    try {
-        await runFullIndex({
-            canvasBaseUrl: baseUrl,
-            accessToken: accessToken,
-        });
-        console.log('✅ Indexer completed successfully.');
-    } catch (error) {
-        console.log(`⚠️  Indexer failed: ${error.message}`);
-    }
-    console.log('');
-
-    // Test 6: Build a knowledge graph for the first course FROM THE LOCAL DB
-    if (courses.length > 0) {
-        const testCourse = courses[0];
-        console.log(`🧠 Test 6: Build knowledge graph for "${testCourse.name}" from local index`);
-        try {
-          const knowledgeGraph = await getKnowledgeGraph({
-            courseName: testCourse.name,
-          });
-          console.log(`✅ Knowledge graph built successfully from local index for "${knowledgeGraph.courseName}":`);
-          console.log(`   - Syllabus: ${knowledgeGraph.syllabus?.body ? 'Found' : 'Not found'}`);
-          console.log(`   - Assignments: ${knowledgeGraph.assignments.length}`);
-          console.log(`   - Files: ${knowledgeGraph.files.length}`);
-        } catch (error) {
-          console.log(`⚠️  Could not build knowledge graph from index: ${error.message}`);
-        }
-        console.log('');
-    }
-
-    // Test 7: Generate a Q&A prompt FROM THE LOCAL DB using SEMANTIC SEARCH
-    if (courses.length > 0) {
-        const testCourse = courses[0];
-        const testQuestion = "What is the policy on late submissions?";
-        console.log(`❓ Test 7: Generate semantic Q&A prompt for "${testCourse.name}"`);
-        console.log(`   Question: "${testQuestion}"`);
-        try {
-          const prompt = await generateQAPrompt({
-            courseName: testCourse.name,
-            question: testQuestion,
-          });
-          console.log(`✅ Semantic prompt generated successfully.`);
-          if (prompt.includes(testQuestion) && prompt.includes("semantically relevant excerpts")) {
-            console.log(`   - Prompt contains the question and correct instructions.`);
-          } else {
-            console.warn(`   - Prompt seems malformed.`);
-          }
-        } catch (error) {
-          console.log(`⚠️  Could not generate prompt from index: ${error.message}`);
-        }
-        console.log('');
-    }
-
-    console.log('🎉 MCP Server test and index completed successfully!');
+    console.log('🎉 MCP Server test completed successfully!');
     console.log('');
     console.log('Next steps:');
     console.log('1. Run the server with `npm start`');
-    console.log('2. Connect your MCP client and ask a question about your course, like:');
-    console.log('   "What is the policy on late submissions for Intro to Everything?"');
+    console.log('2. Connect your MCP client and ask questions about your courses');
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);

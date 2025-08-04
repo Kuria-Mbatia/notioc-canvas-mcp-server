@@ -22,7 +22,7 @@ A streamlined Model Context Protocol (MCP) server that provides comprehensive Ca
 - **Natural Language Search**: Ask questions like "find homework 3 in math 451"
 - **Automatic File Reading**: Convert documents to readable content instantly
 - **File Discovery**: Extract files from assignments and embedded links
-- **Smart Indexing**: Lightning-fast local database of all course content
+- **Direct API Access**: Real-time Canvas data retrieval without local caching
 
 ### 🔍 **Intelligent Search & Discovery**
 - **Smart Search**: Pattern-matching for homework and assignments
@@ -54,22 +54,8 @@ cp .env.example .env
 
 ### 3. Run the Server
 
-**Standard Mode:**
 ```bash
 npm start
-```
-
-**Development Mode (fast startup):**
-```bash
-npm run dev  # Skips background indexing for instant startup
-```
-
-**For Background Indexing (Recommended):**
-```bash
-# Add these to your .env file:
-ENABLE_BACKGROUND_INDEXING=true
-RUN_INDEXER_ON_STARTUP=true
-INDEXING_INTERVAL_HOURS=12
 ```
 
 ## 🛠️ Available Tools (29 Total)
@@ -77,7 +63,6 @@ INDEXING_INTERVAL_HOURS=12
 ### 🔍 **Core Canvas Operations (10 tools)**
 | Tool Name | Description | Example Usage |
 |-----------|-------------|---------------|
-| `run_indexer` | Manually run the Canvas data indexer | "refresh my course data" |
 | `get_courses` | List all Canvas courses with enrollment details | "show me my active courses" |
 | `get_assignments` | Course assignments with file information | "what assignments are due this week?" |
 | `get_assignment_details` | Full assignment details with file content | "show me homework 3 details" |
@@ -174,24 +159,18 @@ INDEXING_INTERVAL_HOURS=12
 # Required Settings
 CANVAS_BASE_URL=https://your-school.instructure.com
 CANVAS_ACCESS_TOKEN=your_api_token_here
-
-# Optional Settings
-ENABLE_BACKGROUND_INDEXING=true          # Auto-refresh course data
-RUN_INDEXER_ON_STARTUP=true             # Index data when server starts
-INDEXING_INTERVAL_HOURS=12               # How often to refresh data
-CACHE_MAX_AGE_HOURS=6                    # How long to keep cached data
 ```
 
 ### 🎯 **Optimized for Claude Desktop**
 
 This server is specifically optimized for use with Claude Desktop's MCP integration. It provides:
 
-- **🧠 Reliable Operation**: Removed complex AI features that could cause instability
-- **⚡ Fast Responses**: Streamlined tools for quick Canvas operations
+- **🧠 Reliable Operation**: Streamlined for stability and consistent performance
+- **⚡ Fast Responses**: Direct Canvas API calls for quick operations
 - **🎯 Essential Features**: Focus on core Canvas functionality that works consistently
 - **🤖 Natural Language**: Easy interaction through Claude's conversational interface
 
-## 📋 What's Included vs Removed
+## 📋 What's Included
 
 ### ✅ **Included (29 tools)**
 - All core Canvas operations (courses, assignments, files, discussions)
@@ -200,14 +179,6 @@ This server is specifically optimized for use with Claude Desktop's MCP integrat
 - Smart search with pattern matching
 - File processing and content reading
 - User and people management
-
-### ❌ **Removed for Stability**
-- Advanced AI/ML features (predictive analytics, personas)
-- Complex vector embedding systems
-- Relationship intelligence
-- Progress tracking analytics
-- Knowledge graph generation
-- AI-powered Q&A with semantic search
 
 ## 🔧 Claude Desktop Integration
 
@@ -227,6 +198,14 @@ To use with Claude Desktop, add this server configuration to your Claude Desktop
   }
 }
 ```
+
+---
+
+## 🎓 The Essential Canvas Assistant
+
+The Notioc Canvas MCP Server provides a reliable, comprehensive interface to Canvas LMS through Claude Desktop. Access all your course content, manage assignments, participate in discussions, and handle communications - all through natural language conversations with Claude.
+
+*Perfect for students who want seamless Canvas integration without complex setup!* 🎓
 
 ---
 
