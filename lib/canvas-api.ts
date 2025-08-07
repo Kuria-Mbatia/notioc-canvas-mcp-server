@@ -68,7 +68,7 @@ export async function callCanvasAPI({
 
     if (cachedResponse) {
       // Create a new Response object from the cached buffer
-      return new Response(cachedResponse, {
+      return new Response(cachedResponse.toString(), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
