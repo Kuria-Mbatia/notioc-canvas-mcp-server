@@ -39,6 +39,27 @@ coverage/
 *.swo
 *~
 
+# Prevent test/debug files from being added
+test-*.js
+debug-*.js
+*exploit*.js
+advanced-*.js
+analyze-*.js
+bypass-*.js
+ultimate-*.js
+verify-*.js
+check-*.js
+privilege-*.js
+run-*.js
+graphql-*.js
+
+# Prevent unwanted documentation
+PHASE*.md
+PREVIOUS-*.md
+QUIZ-*.md
+canvas-security-*.md
+legitimate-*.md
+
 # OS generated files
 .DS_Store
 .DS_Store?
