@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "notioc-canvas": {
+      "command": "node",
+      "args": ["/Users/kuriambatia/Desktop/notioc-canvas-mcp-server/dist/src/server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ import { fetchAllPaginated, CanvasPage, CanvasDiscussion } from '../lib/paginati
 import { findBestMatch } from '../lib/search.js';
 import { listCourses } from './courses.js';
 import { logger } from '../lib/logger.js';
+import { parseCanvasUrl, isCanvasUrl, extractPageSlug } from '../lib/url-parser.js';
 
 // Interfaces for Pages functionality
 export interface PagesListParams {
@@ -31,6 +32,7 @@ export interface PageContentParams {
   courseName?: string;
   pageUrl?: string;
   pageId?: string;
+  fullUrl?: string; // New: accepts full Canvas URL like https://psu.instructure.com/courses/2422265/pages/l12-overview
 }
 
 // Interfaces for Discussions/Announcements functionality
@@ -58,8 +60,9 @@ export interface DiscussionContentParams {
   accessToken: string;
   courseId?: string;
   courseName?: string;
-  discussionId: string;
+  discussionId?: string;
   includeReplies?: boolean;
+  fullUrl?: string; // New: accepts full Canvas discussion URL
 }
 
 // Helper to extract the last part of a URL, which Canvas uses as a page identifier
@@ -128,6 +131,17 @@ export async function listPages(params: PagesListParams): Promise<PageInfo[]> {
 
   } catch (error) {
     if (error instanceof Error) {
+      // Handle specific Canvas API errors gracefully
+      if (error.message.includes('404') || error.message.includes('disabled') || error.message.includes('تم تعطيل')) {
+        logger.warn(`Pages not available for course ${courseId}: ${error.message}`);
+        return []; // Return empty array instead of throwing
+      }
+      if (error.message.includes('401') || error.message.includes('access token')) {
+        throw new Error(`Authentication failed - please check your Canvas access token`);
+      }
+      if (error.message.includes('403') || error.message.includes('insufficient permissions')) {
+        throw new Error(`Access denied - insufficient permissions to view pages for course ${courseId}`);
+      }
       throw new Error(`Failed to list pages: ${error.message}`);
     } else {
       throw new Error('Failed to list pages: Unknown error');
@@ -139,10 +153,24 @@ export async function listPages(params: PagesListParams): Promise<PageInfo[]> {
  * Get the content of a specific page
  */
 export async function getPageContent(params: PageContentParams): Promise<{ title: string; body: string, url: string }> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, pageUrl, pageId } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, pageUrl, pageId, fullUrl } = params;
+  
+  // Handle full Canvas URL
+  if (fullUrl && isCanvasUrl(fullUrl)) {
+    const parsedUrl = parseCanvasUrl(fullUrl);
+    if (parsedUrl.courseId) {
+      courseId = parsedUrl.courseId;
+    }
+    if (parsedUrl.pageUrl) {
+      pageUrl = parsedUrl.pageUrl;
+    }
+    if (parsedUrl.baseUrl) {
+      canvasBaseUrl = parsedUrl.baseUrl;
+    }
+  }
   
   if (!pageUrl && !pageId) {
-    throw new Error('Either pageUrl or pageId must be provided.');
+    throw new Error('Either pageUrl, pageId, or fullUrl must be provided.');
   }
 
   const pageIdentifier = pageId || (pageUrl ? extractPageIdentifier(pageUrl) : '');
@@ -169,7 +197,11 @@ export async function getPageContent(params: PageContentParams): Promise<{ title
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to get page content: ${response.status} ${response.statusText}`);
+      if (response.status === 404) {
+        throw new Error(`Page "${pageIdentifier}" not found in course ${courseId}. This course may not have pages enabled or the page may not exist.`);
+      }
+      const errorText = await response.text();
+      throw new Error(`Failed to get page content: ${response.status} ${response.statusText}. ${errorText}`);
     }
 
     const pageData: CanvasPage = await response.json();
@@ -262,7 +294,25 @@ export async function listDiscussions(params: DiscussionsListParams): Promise<Di
  * Get the content of a specific discussion topic
  */
 export async function getDiscussionContent(params: DiscussionContentParams): Promise<{ title: string; message: string; url: string; replies?: any[] }> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, discussionId, includeReplies = true } = params;
+  let { canvasBaseUrl, accessToken, courseId, courseName, discussionId, includeReplies = true, fullUrl } = params;
+  
+  // Handle full Canvas URL
+  if (fullUrl && isCanvasUrl(fullUrl)) {
+    const parsedUrl = parseCanvasUrl(fullUrl);
+    if (parsedUrl.courseId) {
+      courseId = parsedUrl.courseId;
+    }
+    if (parsedUrl.discussionId) {
+      discussionId = parsedUrl.discussionId;
+    }
+    if (parsedUrl.baseUrl) {
+      canvasBaseUrl = parsedUrl.baseUrl;
+    }
+  }
+  
+  if (!discussionId) {
+    throw new Error('Either discussionId or fullUrl must be provided.');
+  }
   
   try {
     if (!courseId && courseName) {

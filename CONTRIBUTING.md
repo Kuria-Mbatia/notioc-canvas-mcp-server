@@ -7,7 +7,7 @@ Thank you for your interest in contributing to the Notioc Canvas MCP Server! Thi
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/canvas-mcp-server.git
+   git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
    cd canvas-mcp-server
    ```
 3. **Install dependencies**:

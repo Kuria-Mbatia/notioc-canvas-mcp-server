@@ -40,6 +40,24 @@ export async function fetchAllPaginated<T>(
 
     if (!response.ok) {
       const errorText = await response.text();
+      
+      // Handle common Canvas API errors with user-friendly messages
+      if (response.status === 404) {
+        if (errorText.includes('تم تعطيل') || errorText.includes('disabled')) {
+          throw new Error(`Canvas API Error (${response.status}): The requested resource has been disabled for this course`);
+        }
+        throw new Error(`Canvas API Error (${response.status}): The requested resource was not found or is not accessible`);
+      }
+      
+      if (response.status === 401) {
+        throw new Error(`Canvas API Error (${response.status}): Invalid or expired access token`);
+      }
+      
+      if (response.status === 403) {
+        throw new Error(`Canvas API Error (${response.status}): Access denied - insufficient permissions`);
+      }
+      
+      // For other errors, include the raw response but make it clearer
       throw new Error(`Canvas API Error (${response.status}): ${errorText}`);
     }
 

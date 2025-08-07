@@ -6,6 +6,7 @@ import { findBestMatch } from '../lib/search.js';
 import { listCourses } from './courses.js';
 import Fuse from 'fuse.js';
 import { createRequire } from 'module';
+import { logger } from '../lib/logger.js';
 
 // PDF parsing function - use require to avoid debug mode issues
 let pdfParse: any = null;
@@ -178,6 +179,17 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
 
   } catch (error) {
     if (error instanceof Error) {
+      // Handle specific Canvas API errors gracefully
+      if (error.message.includes('404') || error.message.includes('disabled') || error.message.includes('تم تعطيل')) {
+        logger.warn(`Files not available for course ${courseId}: ${error.message}`);
+        return []; // Return empty array instead of throwing
+      }
+      if (error.message.includes('401') || error.message.includes('access token')) {
+        throw new Error(`Authentication failed - please check your Canvas access token`);
+      }
+      if (error.message.includes('403') || error.message.includes('insufficient permissions')) {
+        throw new Error(`Access denied - insufficient permissions to view files for course ${courseId}`);
+      }
       throw new Error(`Failed to search files: ${error.message}`);
     } else {
       throw new Error('Failed to search files: Unknown error');
@@ -316,20 +328,62 @@ export async function readFileById(params: { canvasBaseUrl: string; accessToken:
     }
 
     const fileInfo = await fileInfoResponse.json();
+    logger.info(`File info for ${fileId}: ${fileInfo.display_name}, URL: ${fileInfo.url}`);
 
-    // Now download the file content
-    const fileResponse = await fetch(fileInfo.url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      redirect: 'follow'
-    });
+    // Canvas file downloads require special handling
+    // Try multiple download strategies
+    let fileResponse;
+    let downloadUrl = fileInfo.url;
 
-    if (!fileResponse.ok) {
-      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
+    // Strategy 1: Try the direct URL with authorization
+    try {
+      fileResponse = await fetch(downloadUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        redirect: 'follow'
+      });
+
+      if (!fileResponse.ok) {
+        logger.warn(`Direct download failed: ${fileResponse.status}, trying Canvas API download endpoint`);
+        
+        // Strategy 2: Use Canvas API download endpoint
+        downloadUrl = `${canvasBaseUrl}/api/v1/files/${fileId}/download`;
+        fileResponse = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          redirect: 'follow'
+        });
+      }
+
+      if (!fileResponse.ok) {
+        logger.warn(`API download failed: ${fileResponse.status}, trying direct file access`);
+        
+        // Strategy 3: Try accessing the file content URL directly
+        if (fileInfo.url && fileInfo.url.includes('instructure.com')) {
+          fileResponse = await fetch(fileInfo.url, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'User-Agent': 'Canvas-MCP-Client/1.0',
+            },
+            redirect: 'follow'
+          });
+        }
+      }
+
+      if (!fileResponse.ok) {
+        throw new Error(`All download strategies failed. Last status: ${fileResponse.status} ${fileResponse.statusText}`);
+      }
+
+    } catch (fetchError) {
+      logger.error(`File download error: ${fetchError}`);
+      throw new Error(`Failed to download file: ${fetchError instanceof Error ? fetchError.message : 'Unknown fetch error'}`);
     }
 
     const contentType = fileResponse.headers.get('content-type');
+    logger.info(`File content type: ${contentType}, size: ${fileResponse.headers.get('content-length')}`);
+    
     const content = await handleFileContent(fileResponse, contentType);
 
     return { 
@@ -338,6 +392,7 @@ export async function readFileById(params: { canvasBaseUrl: string; accessToken:
       url: fileInfo.url
     };
   } catch (error) {
+    logger.error(`Error in readFileById: ${error}`);
     if (error instanceof Error) {
       throw new Error(`Failed to read file by ID: ${error.message}`);
     } else {

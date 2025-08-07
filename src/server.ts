@@ -34,6 +34,24 @@ import {
 } from '../tools/users.js';
 import { listQuizzes, getQuizDetails, getQuizSubmissions, ListQuizzesParams, QuizDetailsParams, QuizSubmissionsParams } from '../tools/quizzes.js';
 import { listModules, getModuleItems, getModuleDetails, ListModulesParams, ModuleItemsParams } from '../tools/modules.js';
+import { getGrades, getGradebookCategories, GetGradesParams, GradebookCategoriesParams } from '../tools/grades.js';
+import { listCalendarEvents, CalendarEventListParams } from '../tools/calendar.js';
+import { getAssignmentRubric, getRubricAnalysis, getAssignmentFeedback, RubricParams } from '../tools/rubrics.js';
+import { downloadSubmissionFile } from '../tools/file-download.js';
+import { getCourseNavigation, getCourseSyllabus, CourseStructureParams } from '../tools/course-structure.js';
+import { getSubmissionComments, getDetailedSubmission, GetSubmissionCommentsParams, GetDetailedSubmissionParams } from '../tools/submission-comments.js';
+import { 
+  calculateCourseAnalytics, generateWhatIfScenarios, getGradeTrends,
+  CourseAnalyticsParams, WhatIfScenarioParams, GradeTrendsParams 
+} from '../tools/analytics.js';
+import { 
+  getQuizSubmissionContent, getUserQuizSubmissionHistory,
+  QuizSubmissionContentParams 
+} from '../tools/quiz-submission-content.js';
+import { 
+  getPreviousSubmissionContent, listSubmittedAssignments,
+  PreviousSubmissionParams
+} from '../tools/previous-submissions.js';
 
 // Import custom logger that writes to stderr
 import { logger } from '../lib/logger.js';
@@ -382,6 +400,86 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             required: [],
           },
+        },
+        {
+          name: 'get_submission_comments',
+          description: '📝 **NEW** Get detailed feedback and comments for a specific assignment submission including rubric assessments',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'The Canvas assignment ID (numeric)',
+              },
+              assignmentName: {
+                type: 'string',
+                description: 'The assignment name (e.g., "Final Project", "Essay 1"). If provided, assignmentId is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to get comments for (defaults to current user)',
+              },
+              includeRubricAssessment: {
+                type: 'boolean',
+                description: 'Include detailed rubric grading (default: true)',
+                default: true
+              },
+              includeSubmissionHistory: {
+                type: 'boolean',
+                description: 'Include submission attempt history (default: false)',
+                default: false
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'assignmentId'] },
+              { required: ['courseId', 'assignmentName'] },
+              { required: ['courseName', 'assignmentId'] },
+              { required: ['courseName', 'assignmentName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_detailed_submission',
+          description: '📋 **NEW** Get comprehensive submission details with assignment info, feedback, comments, and rubric data in one call',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'The Canvas assignment ID (numeric)',
+              },
+              assignmentName: {
+                type: 'string',
+                description: 'The assignment name (e.g., "Final Project", "Essay 1"). If provided, assignmentId is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to get submission for (defaults to current user)',
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'assignmentId'] },
+              { required: ['courseId', 'assignmentName'] },
+              { required: ['courseName', 'assignmentId'] },
+              { required: ['courseName', 'assignmentName'] }
+            ]
+          }
         },
         {
           name: 'smart_search',
@@ -769,6 +867,142 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
         {
+          name: 'get_quiz_submission_content',
+          description: '📚 **NEW** Get completed quiz questions and answers for educational review and study assistance. Access your previously completed quiz content to help with studying, understanding mistakes, and grade questions.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              quizId: {
+                type: 'string',
+                description: 'The Canvas quiz ID (if known)',
+              },
+              quizName: {
+                type: 'string',
+                description: 'The quiz name (e.g., "Quiz 1", "Midterm Exam"). If provided, quizId is not required.',
+              },
+              submissionId: {
+                type: 'string',
+                description: 'Specific submission ID (optional - will find most recent completed submission if not provided)',
+              },
+              includeAnswers: {
+                type: 'boolean',
+                description: 'Include correct answers and answer options (default: true)',
+                default: true
+              },
+              includeUserResponses: {
+                type: 'boolean',
+                description: 'Include your submitted answers (default: true)',
+                default: true
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'quizId'] },
+              { required: ['courseId', 'quizName'] },
+              { required: ['courseName', 'quizId'] },
+              { required: ['courseName', 'quizName'] },
+              { required: ['submissionId'] }
+            ]
+          },
+        },
+        {
+          name: 'get_previous_submission_content',
+          description: '📁 **NEW** Access your previously submitted assignment files (PDF, DOCX, etc.) for review and analysis. Perfect for longer projects where you want to review what you submitted.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'The Canvas assignment ID (if known)',
+              },
+              assignmentName: {
+                type: 'string',
+                description: 'The assignment name (e.g., "Final Project", "Essay 1"). If provided, assignmentId is not required.',
+              },
+              includeFileContent: {
+                type: 'boolean',
+                description: 'Whether to automatically read file content (default: false for performance)',
+                default: false
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'assignmentId'] },
+              { required: ['courseId', 'assignmentName'] },
+              { required: ['courseName', 'assignmentId'] },
+              { required: ['courseName', 'assignmentName'] }
+            ]
+          },
+        },
+        {
+          name: 'list_submitted_assignments',
+          description: 'List all assignments you have submitted in a course, with file counts and submission dates.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          },
+        },
+        {
+          name: 'download_submission_file',
+          description: 'Download a specific file from a Canvas submission using Canvas file URL or file ID.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              submissionUrl: {
+                type: 'string',
+                description: 'Full Canvas submission file URL (e.g., https://psu.instructure.com/courses/.../submissions/...?download=...)',
+              },
+              fileId: {
+                type: 'string',
+                description: 'Direct Canvas file ID (alternative to submissionUrl)',
+              },
+              courseId: {
+                type: 'string',
+                description: 'Course ID (helpful for authentication context)',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'Assignment ID (helpful for authentication context)',
+              },
+              submissionId: {
+                type: 'string',
+                description: 'Submission ID (helpful for authentication context)',
+              }
+            },
+            anyOf: [
+              { required: ['submissionUrl'] },
+              { required: ['fileId'] }
+            ]
+          },
+        },
+        {
           name: 'list_modules',
           description: 'List course modules in a Canvas course.',
           inputSchema: {
@@ -872,6 +1106,315 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             required: ['moduleId'],
           },
+        },
+        {
+          name: 'get_grades',
+          description: 'Get student grades and submission status for a specific course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID'
+              },
+              courseName: {
+                type: 'string',
+                description: 'The name of the course (alternative to courseId)'
+              },
+              studentId: {
+                type: 'string',
+                description: 'Specific student ID to get grades for (optional - if not provided, gets current user grades)'
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'Specific assignment ID to get grades for (optional)'
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_gradebook_categories',
+          description: 'Get gradebook categories (assignment groups) and their weights for a course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID'
+              },
+              courseName: {
+                type: 'string',
+                description: 'The name of the course (alternative to courseId)'
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'calculate_course_analytics',
+          description: '📊 **NEW PHASE 2** Calculate comprehensive course analytics including current grades, projected grades, category breakdowns, and upcoming assignments',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to calculate analytics for (defaults to current user)',
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'generate_what_if_scenarios',
+          description: '🎯 **NEW PHASE 2** Generate what-if scenarios for achieving target grades. Answers questions like "What grade do I need on the final to get an A?"',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              targetGrade: {
+                type: 'number',
+                description: 'Target grade percentage (e.g., 90 for 90%)',
+              },
+              targetLetterGrade: {
+                type: 'string',
+                description: 'Target letter grade (e.g., "A", "B+", "C"). If provided, targetGrade is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to generate scenarios for (defaults to current user)',
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'targetGrade'] },
+              { required: ['courseId', 'targetLetterGrade'] },
+              { required: ['courseName', 'targetGrade'] },
+              { required: ['courseName', 'targetLetterGrade'] }
+            ]
+          }
+        },
+        {
+          name: 'get_grade_trends',
+          description: '📈 **NEW PHASE 2** Analyze grade trends over time to see if performance is improving, declining, or stable',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to analyze trends for (defaults to current user)',
+              },
+              daysBack: {
+                type: 'number',
+                description: 'How many days back to analyze (default: 90)',
+                default: 90
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_calendar_events',
+          description: '📅 **NEW** Get calendar events for a specific Canvas course, including assignments and other scheduled events',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              startDate: {
+                type: 'string',
+                description: 'Start date for events (ISO 8601 format, e.g., "2024-01-01T00:00:00Z")'
+              },
+              endDate: {
+                type: 'string', 
+                description: 'End date for events (ISO 8601 format, e.g., "2024-12-31T23:59:59Z")'
+              },
+              type: {
+                type: 'string',
+                enum: ['event', 'assignment'],
+                description: 'Type of calendar events to fetch (default: event)',
+                default: 'event'
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_assignment_rubric',
+          description: 'Get detailed rubric criteria and grading information for a specific assignment',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'The Canvas assignment ID (numeric)',
+              },
+              assignmentName: {
+                type: 'string',
+                description: 'The assignment name (e.g., "Final Project", "Essay 1"). If provided, assignmentId is not required.',
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'assignmentId'] },
+              { required: ['courseId', 'assignmentName'] },
+              { required: ['courseName', 'assignmentId'] },
+              { required: ['courseName', 'assignmentName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_rubric_analysis',
+          description: 'Analyze rubric patterns and common grading criteria across multiple assignments in a course',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              limit: {
+                type: 'number',
+                description: 'Maximum number of assignments to analyze (default: 10)',
+                default: 10
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_assignment_feedback',
+          description: 'Get detailed feedback and rubric assessment for a specific assignment submission',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              },
+              assignmentId: {
+                type: 'string',
+                description: 'The Canvas assignment ID (numeric)',
+              },
+              assignmentName: {
+                type: 'string',
+                description: 'The assignment name (e.g., "Final Project", "Essay 1"). If provided, assignmentId is not required.',
+              },
+              userId: {
+                type: 'string',
+                description: 'Optional user ID to get feedback for (defaults to current user)',
+              }
+            },
+            anyOf: [
+              { required: ['courseId', 'assignmentId'] },
+              { required: ['courseId', 'assignmentName'] },
+              { required: ['courseName', 'assignmentId'] },
+              { required: ['courseName', 'assignmentName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_course_navigation',
+          description: 'Get comprehensive course structure with module prerequisites and navigation paths',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
+        },
+        {
+          name: 'get_course_syllabus',
+          description: 'Get course syllabus information from multiple sources with structured data extraction',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'The Canvas course ID (numeric)',
+              },
+              courseName: {
+                type: 'string',
+                description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+              }
+            },
+            anyOf: [
+              { required: ['courseId'] },
+              { required: ['courseName'] }
+            ]
+          }
         },
     ],
   };
@@ -1137,6 +1680,249 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             {
                 type: "text",
                 text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_submission_comments': {
+        const submissionData = await getSubmissionComments({
+          ...getCanvasConfig(),
+          ...(input as Omit<GetSubmissionCommentsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 💬 Submission Comments: ${submissionData.assignmentName}\n\n`;
+        markdown += `**Assignment ID:** ${submissionData.assignmentId}\n`;
+        markdown += `**Submission ID:** ${submissionData.submissionId}\n`;
+        markdown += `**Score:** ${submissionData.score !== null ? `${submissionData.score} points` : 'Not graded'}\n`;
+        markdown += `**Grade:** ${submissionData.grade || 'Not assigned'}\n`;
+        markdown += `**Status:** ${submissionData.workflowState}\n`;
+        
+        if (submissionData.submittedAt) {
+          markdown += `**Submitted:** ${new Date(submissionData.submittedAt).toLocaleString()}\n`;
+        }
+        
+        if (submissionData.gradedAt) {
+          markdown += `**Graded:** ${new Date(submissionData.gradedAt).toLocaleString()}\n`;
+        }
+
+        if (submissionData.late) {
+          markdown += `**⚠️ Late Submission**\n`;
+        }
+
+        if (submissionData.excused) {
+          markdown += `**✅ Excused**\n`;
+        }
+
+        markdown += `\n`;
+
+        // Comments section
+        if (submissionData.comments.length > 0) {
+          markdown += `## 💬 Instructor Comments (${submissionData.comments.length})\n\n`;
+          
+          submissionData.comments.forEach((comment, index) => {
+            markdown += `### Comment ${index + 1}\n`;
+            markdown += `**From:** ${comment.authorName}\n`;
+            markdown += `**Date:** ${new Date(comment.createdAt).toLocaleString()}\n\n`;
+            markdown += `> ${comment.comment}\n\n`;
+            
+            if (comment.attachments && comment.attachments.length > 0) {
+              markdown += `**Attachments:**\n`;
+              comment.attachments.forEach(att => {
+                markdown += `- [${att.filename}](${att.url}) (${att.contentType})\n`;
+              });
+              markdown += `\n`;
+            }
+            
+            markdown += `---\n\n`;
+          });
+        } else {
+          markdown += `## 💬 Comments\n\n*No instructor comments found for this submission.*\n\n`;
+        }
+
+        // Rubric assessment section
+        if (submissionData.rubricAssessment && submissionData.rubricAssessment.length > 0) {
+          markdown += `## 🎯 Rubric Assessment\n\n`;
+          markdown += `| Criterion | Score | Performance Level | Comments |\n|---|---|---|---|\n`;
+          
+          submissionData.rubricAssessment.forEach(criterion => {
+            const score = criterion.pointsEarned !== null ? 
+              `${criterion.pointsEarned} / ${criterion.pointsPossible}` : 
+              `Not scored / ${criterion.pointsPossible}`;
+            const performance = criterion.ratingDescription || 'Not assessed';
+            const comments = criterion.comments || 'No comments';
+            
+            markdown += `| ${criterion.criterionDescription} | ${score} | ${performance} | ${comments} |\n`;
+          });
+          
+          const totalEarned = submissionData.rubricAssessment.reduce((sum, c) => sum + (c.pointsEarned || 0), 0);
+          const totalPossible = submissionData.rubricAssessment.reduce((sum, c) => sum + c.pointsPossible, 0);
+          markdown += `\n**Total Rubric Score:** ${totalEarned} / ${totalPossible} points\n\n`;
+        }
+
+        // Submission history if included
+        if (submissionData.submissionHistory && submissionData.submissionHistory.length > 0) {
+          markdown += `## 📚 Submission History\n\n`;
+          markdown += `| Attempt | Submitted | Score | Grade |\n|---|---|---|---|\n`;
+          
+          submissionData.submissionHistory.forEach(attempt => {
+            const submitted = attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'Not submitted';
+            const score = attempt.score !== null ? attempt.score.toString() : 'N/A';
+            const grade = attempt.grade || 'N/A';
+            
+            markdown += `| ${attempt.attempt} | ${submitted} | ${score} | ${grade} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_detailed_submission': {
+        const detailedData = await getDetailedSubmission({
+          ...getCanvasConfig(),
+          ...(input as Omit<GetDetailedSubmissionParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 📋 Detailed Submission: ${detailedData.assignment.name}\n\n`;
+
+        // Assignment Overview
+        markdown += `## 📝 Assignment Details\n\n`;
+        markdown += `**Assignment ID:** ${detailedData.assignment.id}\n`;
+        markdown += `**Points Possible:** ${detailedData.assignment.pointsPossible}\n`;
+        markdown += `**Due Date:** ${detailedData.assignment.dueAt ? new Date(detailedData.assignment.dueAt).toLocaleString() : 'No due date'}\n`;
+        markdown += `**Submission Types:** ${detailedData.assignment.submissionTypes.join(', ')}\n\n`;
+
+        if (detailedData.assignment.description) {
+          markdown += `**Description:**\n${detailedData.assignment.description}\n\n`;
+        }
+
+        // Submission Details
+        markdown += `## 📊 Submission Status\n\n`;
+        markdown += `**Submission ID:** ${detailedData.submission.id}\n`;
+        markdown += `**Score:** ${detailedData.submission.score !== null ? `${detailedData.submission.score} / ${detailedData.assignment.pointsPossible}` : 'Not graded'}\n`;
+        markdown += `**Grade:** ${detailedData.submission.grade || 'Not assigned'}\n`;
+        markdown += `**Status:** ${detailedData.submission.workflowState}\n`;
+        
+        if (detailedData.submission.submittedAt) {
+          markdown += `**Submitted:** ${new Date(detailedData.submission.submittedAt).toLocaleString()}\n`;
+        }
+        
+        if (detailedData.submission.gradedAt) {
+          markdown += `**Graded:** ${new Date(detailedData.submission.gradedAt).toLocaleString()}\n`;
+        }
+
+        if (detailedData.submission.late) {
+          markdown += `**⚠️ Late Submission**\n`;
+        }
+
+        if (detailedData.submission.excused) {
+          markdown += `**✅ Excused**\n`;
+        }
+
+        markdown += `\n`;
+
+        // Submission Content
+        if (detailedData.submission.body) {
+          markdown += `## 📄 Submission Content\n\n`;
+          markdown += `${detailedData.submission.body}\n\n`;
+        }
+
+        if (detailedData.submission.url) {
+          markdown += `**Submission URL:** [${detailedData.submission.url}](${detailedData.submission.url})\n\n`;
+        }
+
+        if (detailedData.submission.attachments && detailedData.submission.attachments.length > 0) {
+          markdown += `**Attachments:**\n`;
+          detailedData.submission.attachments.forEach(att => {
+            const sizeKB = Math.round(att.size / 1024);
+            markdown += `- [${att.filename}](${att.url}) (${att.contentType}, ${sizeKB}KB)\n`;
+          });
+          markdown += `\n`;
+        }
+
+        // Comments section
+        if (detailedData.comments.length > 0) {
+          markdown += `## 💬 Instructor Feedback (${detailedData.comments.length} comments)\n\n`;
+          
+          detailedData.comments.forEach((comment, index) => {
+            markdown += `### Comment ${index + 1}\n`;
+            markdown += `**From:** ${comment.authorName}\n`;
+            markdown += `**Date:** ${new Date(comment.createdAt).toLocaleString()}\n\n`;
+            markdown += `> ${comment.comment}\n\n`;
+            
+            if (comment.attachments && comment.attachments.length > 0) {
+              markdown += `**Attachments:**\n`;
+              comment.attachments.forEach(att => {
+                markdown += `- [${att.filename}](${att.url})\n`;
+              });
+              markdown += `\n`;
+            }
+            
+            markdown += `---\n\n`;
+          });
+        } else {
+          markdown += `## 💬 Instructor Feedback\n\n*No instructor comments found for this submission.*\n\n`;
+        }
+
+        // Rubric Assessment
+        if (detailedData.rubricAssessment && detailedData.rubricAssessment.length > 0) {
+          markdown += `## 🎯 Rubric Assessment\n\n`;
+          markdown += `| Criterion | Score | Performance Level | Feedback |\n|---|---|---|---|\n`;
+          
+          detailedData.rubricAssessment.forEach(criterion => {
+            const score = criterion.pointsEarned !== null ? 
+              `${criterion.pointsEarned} / ${criterion.pointsPossible}` : 
+              `Not scored / ${criterion.pointsPossible}`;
+            const performance = criterion.ratingDescription || 'Not assessed';
+            const feedback = criterion.comments || 'No feedback';
+            
+            markdown += `| ${criterion.criterionDescription} | ${score} | ${performance} | ${feedback} |\n`;
+          });
+          
+          const totalEarned = detailedData.rubricAssessment.reduce((sum, c) => sum + (c.pointsEarned || 0), 0);
+          const totalPossible = detailedData.rubricAssessment.reduce((sum, c) => sum + c.pointsPossible, 0);
+          markdown += `\n**Total Rubric Score:** ${totalEarned} / ${totalPossible} points\n\n`;
+        }
+
+        // Full Rubric Reference
+        if (detailedData.rubricCriteria && detailedData.rubricCriteria.length > 0) {
+          markdown += `## 📋 Complete Rubric Reference\n\n`;
+          
+          detailedData.rubricCriteria.forEach((criterion, index) => {
+            markdown += `### ${index + 1}. ${criterion.description} (${criterion.points} pts)\n\n`;
+            
+            if (criterion.longDescription) {
+              markdown += `*${criterion.longDescription}*\n\n`;
+            }
+
+            if (criterion.ratings.length > 0) {
+              markdown += `**Performance Levels:**\n\n`;
+              markdown += `| Level | Points | Description |\n|---|---|---|\n`;
+              
+              criterion.ratings.forEach(rating => {
+                const description = rating.longDescription || rating.description;
+                markdown += `| ${rating.description} | ${rating.points} | ${description} |\n`;
+              });
+              
+              markdown += `\n`;
+            }
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
             }
           ]
         };
@@ -1615,6 +2401,274 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         };
       }
 
+      case 'get_quiz_submission_content': {
+        const quizContent = await getQuizSubmissionContent({
+          ...getCanvasConfig(),
+          ...(input as Omit<QuizSubmissionContentParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 📚 Quiz Submission Review: ${quizContent.quizTitle}\n\n`;
+        markdown += `**Quiz ID:** ${quizContent.quizId}\n`;
+        markdown += `**Submission ID:** ${quizContent.submissionId}\n`;
+        markdown += `**Attempt:** ${quizContent.attempt}\n`;
+        markdown += `**Score:** ${quizContent.score} / ${quizContent.pointsPossible} points (${((quizContent.score / quizContent.pointsPossible) * 100).toFixed(1)}%)\n`;
+        
+        if (quizContent.submittedAt) {
+          markdown += `**Submitted:** ${new Date(quizContent.submittedAt).toLocaleString()}\n`;
+        }
+        
+        if (quizContent.timeSpent) {
+          markdown += `**Time Spent:** ${Math.floor(quizContent.timeSpent / 60)} minutes ${quizContent.timeSpent % 60} seconds\n`;
+        }
+        
+        markdown += `**Status:** ${quizContent.workflowState}\n\n`;
+
+        markdown += `## 📝 Questions and Answers\n\n`;
+        
+        quizContent.questions.forEach((question, index) => {
+          markdown += `### Question ${index + 1}: ${question.pointsPossible} points\n\n`;
+          
+          // Clean up question text (remove HTML tags for better readability)
+          const cleanQuestionText = question.questionText
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+          
+          markdown += `**Question:** ${cleanQuestionText}\n\n`;
+          
+          // Show question type
+          markdown += `**Type:** ${question.questionType}\n\n`;
+          
+          // Show user's answer if available
+          if (question.userAnswer !== undefined && question.userAnswer !== null) {
+            markdown += `**Your Answer:** ${question.userAnswer}\n\n`;
+          }
+          
+          // Show score for this question
+          if (question.userScore !== undefined) {
+            const percentage = question.pointsPossible > 0 ? 
+              ((question.userScore / question.pointsPossible) * 100).toFixed(1) : '0';
+            markdown += `**Score:** ${question.userScore} / ${question.pointsPossible} points (${percentage}%)\n\n`;
+          }
+          
+          // Show if correct/incorrect
+          if (question.correct !== undefined) {
+            markdown += `**Result:** ${question.correct ? '✅ Correct' : '❌ Incorrect'}\n\n`;
+          }
+          
+          // Show answer options for multiple choice questions
+          if (question.answers && question.answers.length > 0) {
+            markdown += `**Answer Options:**\n`;
+            question.answers.forEach((answer, answerIndex) => {
+              const isCorrect = answer.weight > 0 ? ' ✅' : '';
+              markdown += `${String.fromCharCode(65 + answerIndex)}. ${answer.text}${isCorrect}\n`;
+            });
+            markdown += `\n`;
+          }
+          
+          // Show feedback comments
+          if (question.correct && question.correctComments) {
+            markdown += `**Feedback (Correct):** ${question.correctComments}\n\n`;
+          } else if (!question.correct && question.incorrectComments) {
+            markdown += `**Feedback (Incorrect):** ${question.incorrectComments}\n\n`;
+          } else if (question.neutralComments) {
+            markdown += `**Feedback:** ${question.neutralComments}\n\n`;
+          }
+          
+          markdown += `---\n\n`;
+        });
+
+        markdown += `## 📊 Study Summary\n\n`;
+        const correctCount = quizContent.questions.filter(q => q.correct === true).length;
+        const totalQuestions = quizContent.questions.length;
+        markdown += `- **Questions Correct:** ${correctCount} / ${totalQuestions}\n`;
+        markdown += `- **Overall Accuracy:** ${totalQuestions > 0 ? ((correctCount / totalQuestions) * 100).toFixed(1) : '0'}%\n`;
+        markdown += `- **Points Earned:** ${quizContent.score} / ${quizContent.pointsPossible}\n\n`;
+
+        const incorrectQuestions = quizContent.questions.filter(q => q.correct === false);
+        if (incorrectQuestions.length > 0) {
+          markdown += `### 🎯 Areas for Review\n\n`;
+          markdown += `Focus on these topics where you missed points:\n\n`;
+          incorrectQuestions.forEach((question, index) => {
+            const questionNum = quizContent.questions.indexOf(question) + 1;
+            markdown += `- **Question ${questionNum}** (${question.pointsPossible} pts): ${question.questionType}\n`;
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_previous_submission_content': {
+        const submissionContent = await getPreviousSubmissionContent({
+          ...getCanvasConfig(),
+          ...(input as Omit<PreviousSubmissionParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 📁 Previous Submission: ${submissionContent.assignment.name}\n\n`;
+        
+        // Assignment details
+        markdown += `## 📚 Assignment Details\n\n`;
+        markdown += `**Assignment ID:** ${submissionContent.assignment.id}\n`;
+        markdown += `**Points Possible:** ${submissionContent.assignment.pointsPossible}\n`;
+        markdown += `**Due Date:** ${submissionContent.assignment.dueAt ? new Date(submissionContent.assignment.dueAt).toLocaleString() : 'No due date'}\n`;
+        markdown += `**Submission Types:** ${submissionContent.assignment.submissionTypes.join(', ')}\n\n`;
+        
+        if (submissionContent.assignment.description) {
+          markdown += `**Description:** ${submissionContent.assignment.description.substring(0, 200)}${submissionContent.assignment.description.length > 200 ? '...' : ''}\n\n`;
+        }
+
+        // Submission details
+        markdown += `## 📊 Your Submission\n\n`;
+        markdown += `**Score:** ${submissionContent.submission.score !== null ? `${submissionContent.submission.score} / ${submissionContent.assignment.pointsPossible}` : 'Not graded'}\n`;
+        markdown += `**Grade:** ${submissionContent.submission.grade || 'Not assigned'}\n`;
+        markdown += `**Submitted:** ${submissionContent.submission.submittedAt ? new Date(submissionContent.submission.submittedAt).toLocaleString() : 'Not submitted'}\n`;
+        markdown += `**Attempt:** ${submissionContent.submission.attempt}\n`;
+        markdown += `**Status:** ${submissionContent.submission.workflowState}\n\n`;
+
+        // Text submission content
+        if (submissionContent.submission.body) {
+          markdown += `### 📝 Text Submission\n\n`;
+          markdown += `${submissionContent.submission.body}\n\n`;
+        }
+
+        // URL submission
+        if (submissionContent.submission.url) {
+          markdown += `### 🔗 URL Submission\n\n`;
+          markdown += `[${submissionContent.submission.url}](${submissionContent.submission.url})\n\n`;
+        }
+
+        // File attachments
+        if (submissionContent.files.length > 0) {
+          markdown += `## 📎 Submitted Files (${submissionContent.files.length})\n\n`;
+          
+          submissionContent.files.forEach((file, index) => {
+            markdown += `### ${index + 1}. ${file.filename}\n\n`;
+            markdown += `**Type:** ${file.contentType}\n`;
+            markdown += `**Size:** ${Math.round(file.size / 1024)}KB\n`;
+            markdown += `**File ID:** ${file.id}\n`;
+            markdown += `**Download:** [${file.filename}](${file.url})\n\n`;
+            
+            if (file.content) {
+              markdown += `**Content:**\n\n`;
+              if (file.contentType.includes('pdf') || file.content.length > 1000) {
+                markdown += `\`\`\`\n${file.content.substring(0, 1000)}${file.content.length > 1000 ? '\n... (truncated, full content available)' : ''}\n\`\`\`\n\n`;
+              } else {
+                markdown += `\`\`\`\n${file.content}\n\`\`\`\n\n`;
+              }
+            }
+          });
+        } else {
+          markdown += `## 📎 Files\n\n*No files were submitted with this assignment.*\n\n`;
+        }
+
+        // Submission history
+        if (submissionContent.submissionHistory && submissionContent.submissionHistory.length > 1) {
+          markdown += `## 📚 Submission History (${submissionContent.submissionHistory.length} attempts)\n\n`;
+          
+          submissionContent.submissionHistory.forEach((attempt, index) => {
+            markdown += `### Attempt ${attempt.attempt}\n`;
+            markdown += `**Submitted:** ${attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'Not submitted'}\n`;
+            markdown += `**Files:** ${attempt.files.length}\n`;
+            
+            if (attempt.files.length > 0) {
+              attempt.files.forEach(file => {
+                markdown += `- ${file.filename} (${Math.round(file.size / 1024)}KB)\n`;
+              });
+            }
+            markdown += `\n`;
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_submitted_assignments': {
+        const submittedAssignments = await listSubmittedAssignments({
+          ...getCanvasConfig(),
+          ...(input as { courseId?: string; courseName?: string; })
+        });
+
+        let markdown = `# 📋 Your Submitted Assignments\n\n`;
+        
+        if (submittedAssignments.length === 0) {
+          markdown += `*No submitted assignments found in this course.*\n`;
+        } else {
+          markdown += `Found ${submittedAssignments.length} submitted assignments:\n\n`;
+          markdown += `| Assignment | Submitted | Score | Files | Type |\n|---|---|---|---|---|\n`;
+          
+          submittedAssignments.forEach(assignment => {
+            const submittedDate = new Date(assignment.submittedAt).toLocaleDateString();
+            const score = assignment.score !== null ? assignment.score.toString() : 'Not graded';
+            const fileText = assignment.fileCount > 0 ? `${assignment.fileCount} file${assignment.fileCount > 1 ? 's' : ''}` : 'No files';
+            const types = assignment.submissionTypes.join(', ');
+            
+            markdown += `| ${assignment.name} | ${submittedDate} | ${score} | ${fileText} | ${types} |\n`;
+          });
+          
+          markdown += `\n💡 **Tip:** Use \`get_previous_submission_content\` with any assignment name to review your submitted files and content.\n`;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'download_submission_file': {
+        const fileData = await downloadSubmissionFile({
+          ...getCanvasConfig(),
+          ...(input as { submissionUrl?: string; fileId?: string; courseId?: string; assignmentId?: string; submissionId?: string; })
+        });
+
+        let markdown = `# 📁 Downloaded File: ${fileData.filename}\n\n`;
+        markdown += `**File Type:** ${fileData.contentType}\n`;
+        markdown += `**File Size:** ${Math.round(fileData.size / 1024)}KB\n\n`;
+        
+        if (fileData.content.length > 0) {
+          if (fileData.contentType.includes('pdf') || fileData.contentType.includes('image') || fileData.size > 50000) {
+            // For large files or PDFs, provide a summary
+            markdown += `**Content Preview:**\n\n`;
+            markdown += `\`\`\`\n${fileData.content.substring(0, 1000)}${fileData.content.length > 1000 ? '\n... (truncated for display)' : ''}\n\`\`\`\n\n`;
+          } else {
+            // For smaller text files, show full content
+            markdown += `**Full Content:**\n\n`;
+            markdown += `\`\`\`\n${fileData.content}\n\`\`\`\n\n`;
+          }
+        } else {
+          markdown += `**Content:** File content could not be extracted or displayed.\n\n`;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
       case 'list_modules': {
         const modules = await listModules({
           ...getCanvasConfig(),
@@ -1679,6 +2733,677 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           });
         }
         
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_grades': {
+        const grades = await getGrades({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 📊 Grades Report\n\n`;
+        
+        if (grades.length === 0) {
+          markdown += `No grades found or access denied.`;
+        } else {
+          // Process each course and its assignments
+          grades.forEach(course => {
+            markdown += `## 📚 ${course.courseName}\n\n`;
+            
+            // Show overall course scores if available
+            if (course.currentScore !== undefined || course.finalScore !== undefined || course.finalGrade !== undefined) {
+              markdown += `**Course Overview:**\n`;
+              if (course.currentScore !== undefined) markdown += `- Current Score: ${course.currentScore}%\n`;
+              if (course.finalScore !== undefined) markdown += `- Final Score: ${course.finalScore}%\n`;
+              if (course.finalGrade !== undefined) markdown += `- Final Grade: ${course.finalGrade}\n`;
+              markdown += `\n`;
+            }
+            
+            // Show assignments if available
+            if (course.assignments && course.assignments.length > 0) {
+              markdown += `| Assignment | Grade | Status | Points | Possible |\n|---|---|---|---|---|\n`;
+              
+              course.assignments.forEach(assignment => {
+                const status = assignment.submissionStatus === 'graded' ? '✅ Graded' : 
+                             assignment.submissionStatus === 'submitted' ? '📤 Submitted' : 
+                             assignment.submissionStatus === 'missing' ? '❌ Missing' : 
+                             assignment.submissionStatus === 'late' ? '⏰ Late' : '⏳ Not Submitted';
+                const gradeDisplay = assignment.score !== null ? assignment.score : 'No Grade';
+                const pointsDisplay = assignment.pointsPossible ? `${assignment.pointsPossible}` : 'N/A';
+                
+                markdown += `| ${assignment.assignmentName} | ${gradeDisplay} | ${status} | ${assignment.score || 'N/A'} | ${pointsDisplay} |\n`;
+              });
+            } else {
+              markdown += `No assignments found for this course.\n`;
+            }
+            
+            markdown += `\n`;
+          });
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_gradebook_categories': {
+        const categories = await getGradebookCategories({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 📊 Gradebook Categories\n\n`;
+        
+        if (categories.length === 0) {
+          markdown += `No gradebook categories found.`;
+        } else {
+          markdown += `| Category | Weight | Position | Drop Lowest | Drop Highest |\n|---|---|---|---|---|\n`;
+          
+          categories.forEach(category => {
+            const weightDisplay = category.weight > 0 ? `${category.weight}%` : 'No Weight';
+            markdown += `| ${category.name} | ${weightDisplay} | ${category.position} | ${category.dropLowest} | ${category.dropHighest} |\n`;
+          });
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_calendar_events': {
+        const events = await listCalendarEvents({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        
+        let markdown = `# 📅 Calendar Events\n\n`;
+        
+        if (events.length === 0) {
+          markdown += `No calendar events found for the specified criteria.`;
+        } else {
+          markdown += `| Event | Type | Start Date | End Date | Course |\n|---|---|---|---|---|\n`;
+          
+          events.forEach(event => {
+            const startDate = event.startAt ? new Date(event.startAt).toLocaleString() : 'N/A';
+            const endDate = event.endAt ? new Date(event.endAt).toLocaleString() : 'N/A';
+            const eventType = event.type === 'assignment' ? '📝 Assignment' : '📅 Event';
+            
+            markdown += `| [${event.title}](${event.url}) | ${eventType} | ${startDate} | ${endDate} | Course ${event.courseId} |\n`;
+          });
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_assignment_rubric': {
+        const rubricData = await getAssignmentRubric({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+
+        let markdown = `# 🎯 Rubric: ${rubricData.assignmentName}\n\n`;
+        markdown += `**Assignment ID:** ${rubricData.assignmentId}\n`;
+        markdown += `**Total Points:** ${rubricData.totalPoints}\n`;
+        markdown += `**Criteria Count:** ${rubricData.criteria.length}\n\n`;
+
+        markdown += `## Grading Criteria\n\n`;
+
+        rubricData.criteria.forEach((criterion, index) => {
+          markdown += `### ${index + 1}. ${criterion.description} (${criterion.points} points)\n\n`;
+          
+          if (criterion.longDescription) {
+            markdown += `*${criterion.longDescription}*\n\n`;
+          }
+
+          markdown += `**Performance Levels:**\n\n`;
+          markdown += `| Level | Points | Description |\n|---|---|---|\n`;
+          
+          criterion.ratings.forEach(rating => {
+            const description = rating.longDescription || rating.description;
+            markdown += `| ${rating.description} | ${rating.points} | ${description} |\n`;
+          });
+          
+          markdown += `\n`;
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_rubric_analysis': {
+        const analysis = await getRubricAnalysis({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+
+        let markdown = `# 📊 Rubric Analysis: ${analysis.courseInfo.name}\n\n`;
+        markdown += `**Course ID:** ${analysis.courseInfo.id}\n`;
+        markdown += `**Assignments with Rubrics:** ${analysis.assignmentsWithRubrics} of ${analysis.totalAssignments}\n`;
+        markdown += `**Total Rubric Points:** ${analysis.pointDistribution.totalRubricPoints}\n`;
+        markdown += `**Average Points per Criterion:** ${analysis.pointDistribution.avgPointsPerCriterion}\n`;
+        markdown += `**Total Criteria Analyzed:** ${analysis.pointDistribution.criteriaCount}\n\n`;
+
+        if (analysis.rubricThemes.length > 0) {
+          markdown += `## 🎨 Rubric Themes\n\n`;
+          markdown += `| Theme | Frequency | Focus Areas |\n|---|---|---|\n`;
+          
+          analysis.rubricThemes.forEach(theme => {
+            markdown += `| ${theme.theme} | ${theme.frequency} assignments | ${theme.examples.join(', ') || 'Various criteria'} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        if (analysis.commonCriteria.length > 0) {
+          markdown += `## 🔍 Most Common Grading Criteria\n\n`;
+          markdown += `| Criterion | Used in | Avg Points | Example Assignments |\n|---|---|---|---|\n`;
+          
+          analysis.commonCriteria.forEach(criterion => {
+            const examples = criterion.assignments.slice(0, 2).join(', ');
+            const moreCount = criterion.assignments.length > 2 ? ` (+${criterion.assignments.length - 2} more)` : '';
+            markdown += `| ${criterion.description} | ${criterion.frequency} assignments | ${criterion.avgPoints} pts | ${examples}${moreCount} |\n`;
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_assignment_feedback': {
+        const feedback = await getAssignmentFeedback({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+
+        let markdown = `# 📝 Assignment Feedback: ${feedback.assignment.name}\n\n`;
+        markdown += `**Assignment ID:** ${feedback.assignment.id}\n`;
+        markdown += `**Total Points Possible:** ${feedback.assignment.points}\n\n`;
+
+        if (feedback.submission) {
+          markdown += `## 📊 Submission Summary\n\n`;
+          markdown += `**Score:** ${feedback.submission.score || 'Not graded'} / ${feedback.assignment.points}\n`;
+          markdown += `**Grade:** ${feedback.submission.grade || 'Not assigned'}\n`;
+          markdown += `**Status:** ${feedback.submission.workflowState}\n`;
+          
+          if (feedback.submission.submittedAt) {
+            markdown += `**Submitted:** ${new Date(feedback.submission.submittedAt).toLocaleString()}\n`;
+          }
+          
+          markdown += `\n`;
+        }
+
+        if (feedback.feedback && feedback.feedback.criteriaFeedback.length > 0) {
+          markdown += `## 🎯 Rubric Assessment\n\n`;
+          markdown += `**Overall Score:** ${feedback.feedback.totalScore || 'Not scored'} / ${feedback.feedback.totalPossible}\n\n`;
+          
+          markdown += `| Criterion | Score | Performance Level | Comments |\n|---|---|---|---|\n`;
+          
+          feedback.feedback.criteriaFeedback.forEach(criterion => {
+            const score = criterion.pointsEarned !== undefined ? 
+              `${criterion.pointsEarned} / ${criterion.pointsPossible}` : 
+              `Not scored / ${criterion.pointsPossible}`;
+            const performance = criterion.performance || 'Not assessed';
+            const comments = criterion.comments || 'No comments';
+            
+            markdown += `| ${criterion.criterion} | ${score} | ${performance} | ${comments} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        if (feedback.submission?.comments && feedback.submission.comments.length > 0) {
+          markdown += `## 💬 General Comments\n\n`;
+          
+          feedback.submission.comments.forEach(comment => {
+            const date = new Date(comment.createdAt).toLocaleString();
+            markdown += `**${comment.author}** (${date}):\n> ${comment.comment}\n\n`;
+          });
+        }
+
+        if (feedback.rubric && feedback.rubric.length > 0) {
+          markdown += `## 📋 Full Rubric Reference\n\n`;
+          
+          feedback.rubric.forEach((criterion, index) => {
+            markdown += `### ${index + 1}. ${criterion.description} (${criterion.points} pts)\n\n`;
+            
+            if (criterion.ratings.length > 0) {
+              markdown += `**Performance Levels:** `;
+              const levels = criterion.ratings.map(r => `${r.description} (${r.points} pts)`);
+              markdown += levels.join(' • ');
+              markdown += `\n\n`;
+            }
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_course_navigation': {
+        const navigation = await getCourseNavigation({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+
+        let markdown = `# 🧭 Course Navigation: ${navigation.courseName}\n\n`;
+        markdown += `**Course ID:** ${navigation.courseId}\n`;
+        markdown += `**Total Modules:** ${navigation.modules.length}\n`;
+        markdown += `**Overall Progress:** ${navigation.completionStatus.overallProgress}%\n\n`;
+
+        // Progress Summary
+        markdown += `## 📊 Progress Summary\n\n`;
+        markdown += `| Metric | Completed | Total | Percentage |\n|---|---|---|---|\n`;
+        markdown += `| Modules | ${navigation.completionStatus.completedModules} | ${navigation.completionStatus.totalModules} | ${navigation.completionStatus.overallProgress}% |\n`;
+        markdown += `| Items | ${navigation.completionStatus.completedItems} | ${navigation.completionStatus.totalItems} | ${navigation.completionStatus.totalItems > 0 ? Math.round((navigation.completionStatus.completedItems / navigation.completionStatus.totalItems) * 100) : 0}% |\n\n`;
+
+        // Module Structure
+        markdown += `## 🏗️ Module Structure\n\n`;
+        markdown += `| # | Module Name | Status | Items | Prerequisites |\n|---|---|---|---|---|\n`;
+        
+        navigation.modules.forEach((module, index) => {
+          const statusEmoji = module.state === 'completed' ? '✅' : 
+                             module.state === 'started' ? '🔄' : 
+                             module.state === 'locked' ? '🔒' : '⭕';
+          
+          const prereqText = module.prerequisiteModuleIds.length > 0 ? 
+            `${module.prerequisiteModuleIds.length} prereq(s)` : 'None';
+          
+          markdown += `| ${index + 1} | ${module.name} | ${statusEmoji} ${module.state} | ${module.items.length} | ${prereqText} |\n`;
+        });
+
+        // Next Steps
+        if (navigation.nextSteps.length > 0) {
+          markdown += `\n## 🎯 Recommended Next Steps\n\n`;
+          
+          navigation.nextSteps.forEach((step, index) => {
+            markdown += `### ${index + 1}. ${step.moduleName}\n`;
+            markdown += `**Status:** ${step.reason}\n`;
+            
+            if (step.blockedBy && step.blockedBy.length > 0) {
+              markdown += `**Blocked by:** ${step.blockedBy.join(', ')}\n`;
+            }
+            
+            markdown += `\n`;
+          });
+        }
+
+        // Prerequisites Map
+        if (navigation.prerequisiteMap.size > 0) {
+          markdown += `## 🔗 Module Dependencies\n\n`;
+          
+          navigation.modules.forEach(module => {
+            if (module.prerequisiteModuleIds.length > 0) {
+              const prereqNames = module.prerequisiteModuleIds.map(prereqId => {
+                const prereqModule = navigation.modules.find(m => m.id === prereqId);
+                return prereqModule?.name || `Module ${prereqId}`;
+              });
+              
+              markdown += `- **${module.name}** requires: ${prereqNames.join(', ')}\n`;
+            }
+          });
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_course_syllabus': {
+        const syllabus = await getCourseSyllabus({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+
+        let markdown = `# 📚 Course Syllabus: ${syllabus.courseName}\n\n`;
+        markdown += `**Course ID:** ${syllabus.courseId}\n\n`;
+
+        // Syllabus Body
+        if (syllabus.syllabusBody && syllabus.syllabusBody.trim().length > 0) {
+          markdown += `## 📄 Course Syllabus\n\n`;
+          markdown += `${syllabus.syllabusBody}\n\n`;
+        } else {
+          markdown += `## 📄 Course Syllabus\n\n`;
+          markdown += `*No syllabus content found in course body.*\n\n`;
+        }
+
+        // Syllabus Pages
+        if (syllabus.syllabusPages.length > 0) {
+          markdown += `## 📑 Syllabus Pages\n\n`;
+          markdown += `| Page Title | URL |\n|---|---|\n`;
+          
+          syllabus.syllabusPages.forEach(page => {
+            markdown += `| ${page.title} | [View Page](${page.url}) |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Syllabus Files
+        if (syllabus.syllabusFiles.length > 0) {
+          markdown += `## 📁 Syllabus Files\n\n`;
+          markdown += `| File Name | Type | Size | Link |\n|---|---|---|---|\n`;
+          
+          syllabus.syllabusFiles.forEach(file => {
+            const sizeKB = Math.round(file.size / 1024);
+            markdown += `| ${file.name} | ${file.contentType} | ${sizeKB}KB | [Download](${file.url}) |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Extracted Information
+        if (syllabus.extractedInfo) {
+          const info = syllabus.extractedInfo;
+          
+          if (info.gradingPolicy || info.attendancePolicy || info.latePolicy) {
+            markdown += `## 📋 Course Policies\n\n`;
+            
+            if (info.gradingPolicy) {
+              markdown += `### 📊 Grading Policy\n${info.gradingPolicy}\n\n`;
+            }
+            
+            if (info.attendancePolicy) {
+              markdown += `### 📅 Attendance Policy\n${info.attendancePolicy}\n\n`;
+            }
+            
+            if (info.latePolicy) {
+              markdown += `### ⏰ Late Submission Policy\n${info.latePolicy}\n\n`;
+            }
+          }
+
+          if (info.contactInfo && info.contactInfo.length > 0) {
+            markdown += `## 📞 Contact Information\n\n`;
+            markdown += `| Type | Information |\n|---|---|\n`;
+            
+            info.contactInfo.forEach(contact => {
+              const typeLabel = contact.type === 'email' ? '📧 Email' :
+                               contact.type === 'phone' ? '📱 Phone' :
+                               contact.type === 'office_hours' ? '🏢 Office Hours' :
+                               contact.type;
+              
+              markdown += `| ${typeLabel} | ${contact.info} |\n`;
+            });
+            
+            markdown += `\n`;
+          }
+
+          if (info.importantDates && info.importantDates.length > 0) {
+            markdown += `## 📅 Important Dates\n\n`;
+            markdown += `| Date | Event |\n|---|---|\n`;
+            
+            info.importantDates.forEach(date => {
+              markdown += `| ${date.date} | ${date.event} |\n`;
+            });
+            
+            markdown += `\n`;
+          }
+        }
+
+        // Summary
+        markdown += `## 📊 Syllabus Summary\n\n`;
+        markdown += `- **Syllabus Body:** ${syllabus.syllabusBody ? 'Available' : 'Not found'}\n`;
+        markdown += `- **Syllabus Pages:** ${syllabus.syllabusPages.length} found\n`;
+        markdown += `- **Syllabus Files:** ${syllabus.syllabusFiles.length} found\n`;
+        markdown += `- **Extracted Policies:** ${Object.values(syllabus.extractedInfo).filter(v => v && (Array.isArray(v) ? v.length > 0 : true)).length} found\n`;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'calculate_course_analytics': {
+        const analytics = await calculateCourseAnalytics({
+          ...getCanvasConfig(),
+          ...(input as Omit<CourseAnalyticsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 📊 Course Analytics: ${analytics.courseName}\n\n`;
+
+        // Current Grade Summary
+        markdown += `## 🎯 Current Standing\n\n`;
+        markdown += `**Current Grade:** ${analytics.currentGrade.percentage !== null ? `${analytics.currentGrade.percentage.toFixed(1)}%` : 'Not calculated'} `;
+        markdown += `(${analytics.currentGrade.letterGrade || 'No letter grade'})\n`;
+        markdown += `**Points Earned:** ${analytics.currentGrade.pointsEarned} / ${analytics.currentGrade.pointsPossible}\n\n`;
+
+        // Projected Grade
+        markdown += `## 🔮 Projected Final Grade\n\n`;
+        markdown += `**Projected Grade:** ${analytics.projectedGrade.percentage !== null ? `${analytics.projectedGrade.percentage.toFixed(1)}%` : 'Not calculated'} `;
+        markdown += `(${analytics.projectedGrade.letterGrade || 'No letter grade'})\n`;
+        markdown += `**Total Points:** ${analytics.projectedGrade.pointsEarned.toFixed(1)} / ${analytics.projectedGrade.pointsPossible}\n\n`;
+
+        // Category Breakdown
+        if (analytics.categoryBreakdown.length > 0) {
+          markdown += `## 📈 Category Performance\n\n`;
+          markdown += `| Category | Weight | Current Score | Progress | Points |\n|---|---|---|---|---|\n`;
+          
+          analytics.categoryBreakdown.forEach(category => {
+            const score = category.currentScore !== null ? `${category.currentScore.toFixed(1)}%` : 'No grades';
+            const progress = `${category.assignmentsCompleted}/${category.assignmentsTotal}`;
+            const points = `${category.pointsEarned} / ${category.pointsPossible}`;
+            
+            markdown += `| ${category.categoryName} | ${category.weight}% | ${score} | ${progress} | ${points} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Upcoming Assignments
+        if (analytics.upcomingAssignments.length > 0) {
+          markdown += `## 📅 Upcoming Assignments\n\n`;
+          markdown += `| Assignment | Due Date | Points | Days Left | Category |\n|---|---|---|---|---|\n`;
+          
+          analytics.upcomingAssignments.forEach(assignment => {
+            const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date';
+            const daysLeft = assignment.daysUntilDue !== null ? `${assignment.daysUntilDue} days` : 'No due date';
+            
+            markdown += `| ${assignment.name} | ${dueDate} | ${assignment.points} | ${daysLeft} | ${assignment.category} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Statistics
+        markdown += `## 📊 Performance Statistics\n\n`;
+        markdown += `**Completion Rate:** ${analytics.statistics.completionRate.toFixed(1)}% (${analytics.statistics.assignmentsCompleted}/${analytics.statistics.assignmentsTotal} assignments)\n`;
+        if (analytics.statistics.averageScore !== null) {
+          markdown += `**Average Score:** ${analytics.statistics.averageScore.toFixed(1)}%\n`;
+        }
+        markdown += `\n`;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'generate_what_if_scenarios': {
+        const scenarios = await generateWhatIfScenarios({
+          ...getCanvasConfig(),
+          ...(input as Omit<WhatIfScenarioParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 🎯 What-If Scenarios: ${scenarios.courseName}\n\n`;
+
+        // Target Summary
+        markdown += `## 🏆 Target Grade Analysis\n\n`;
+        markdown += `**Current Grade:** ${scenarios.currentGrade !== null ? `${scenarios.currentGrade.toFixed(1)}%` : 'Not calculated'}\n`;
+        markdown += `**Target Grade:** ${scenarios.targetGrade}% (${scenarios.targetLetterGrade})\n`;
+        markdown += `**Is Achievable:** ${scenarios.isAchievable ? '✅ Yes' : '❌ No'}\n\n`;
+
+        if (scenarios.requiredAverage !== null) {
+          markdown += `**Required Average on Remaining Work:** ${scenarios.requiredAverage.toFixed(1)}%\n`;
+        }
+        markdown += `**Remaining Points Available:** ${scenarios.remainingPoints}\n`;
+        markdown += `**Remaining Assignments:** ${scenarios.remainingAssignments}\n\n`;
+
+        // Scenarios
+        if (scenarios.scenarios.length > 0) {
+          markdown += `## 📋 Scenarios\n\n`;
+          
+          scenarios.scenarios.forEach((scenario, index) => {
+            const difficultyEmoji = {
+              'Easy': '🟢',
+              'Moderate': '🟡', 
+              'Challenging': '🟠',
+              'Nearly Impossible': '🔴'
+            }[scenario.difficulty] || '⚪';
+            
+            markdown += `### ${difficultyEmoji} ${scenario.difficulty}: ${scenario.description}\n\n`;
+            markdown += `**Required Score:** ${scenario.requiredScore.toFixed(1)}%\n`;
+            markdown += `**Explanation:** ${scenario.explanation}\n\n`;
+          });
+        }
+
+        // Recommendations
+        if (scenarios.recommendations.length > 0) {
+          markdown += `## 💡 Recommendations\n\n`;
+          
+          scenarios.recommendations.forEach(recommendation => {
+            markdown += `- ${recommendation}\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_grade_trends': {
+        const trends = await getGradeTrends({
+          ...getCanvasConfig(),
+          ...(input as Omit<GradeTrendsParams, 'canvasBaseUrl' | 'accessToken'>)
+        });
+
+        let markdown = `# 📈 Grade Trends: ${trends.courseName}\n\n`;
+
+        // Trend Analysis
+        markdown += `## 📊 Overall Trend Analysis\n\n`;
+        
+        const trendEmoji = {
+          'Improving': '📈',
+          'Declining': '📉', 
+          'Stable': '➡️',
+          'Insufficient Data': '❓'
+        }[trends.trendAnalysis.overallTrend] || '❓';
+        
+        markdown += `**Overall Trend:** ${trendEmoji} ${trends.trendAnalysis.overallTrend}\n`;
+        
+        if (trends.trendAnalysis.trendPercentage !== null) {
+          const direction = trends.trendAnalysis.trendPercentage > 0 ? 'improvement' : 'decline';
+          markdown += `**Trend Change:** ${Math.abs(trends.trendAnalysis.trendPercentage).toFixed(1)} percentage point ${direction}\n`;
+        }
+        
+        markdown += `**Confidence Level:** ${trends.trendAnalysis.confidence}\n\n`;
+
+        // Timeline Data
+        if (trends.timelineData.length > 0) {
+          markdown += `## 📅 Recent Assignment Timeline\n\n`;
+          markdown += `| Date | Assignment | Score | Percentage | Category |\n|---|---|---|---|---|\n`;
+          
+          trends.timelineData.forEach(assignment => {
+            const date = new Date(assignment.date).toLocaleDateString();
+            const percentage = `${assignment.percentage.toFixed(1)}%`;
+            const score = `${assignment.score} / ${assignment.pointsPossible}`;
+            
+            markdown += `| ${date} | ${assignment.assignmentName} | ${score} | ${percentage} | ${assignment.category} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Performance by Category
+        if (trends.performanceByCategory.length > 0) {
+          markdown += `## 📊 Performance by Category\n\n`;
+          markdown += `| Category | Average Score | Trend | Recent Assignments |\n|---|---|---|---|\n`;
+          
+          trends.performanceByCategory.forEach(category => {
+            const trendIcon = {
+              'Improving': '📈',
+              'Declining': '📉',
+              'Stable': '➡️'
+            }[category.trend] || '❓';
+            
+            markdown += `| ${category.categoryName} | ${category.averageScore.toFixed(1)}% | ${trendIcon} ${category.trend} | ${category.recentAssignments} |\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
+        // Insights
+        if (trends.insights.length > 0) {
+          markdown += `## 💡 Key Insights\n\n`;
+          
+          trends.insights.forEach(insight => {
+            markdown += `- ${insight}\n`;
+          });
+          
+          markdown += `\n`;
+        }
+
         return {
           content: [
             {

@@ -1,7 +1,7 @@
 {
   "name": "notioc-canvas-mcp-server",
-  "version": "1.1.0",
-  "description": "Model Context Protocol server for Notioc Canvas integration with Claude Desktop",
+  "version": "1.2.0",
+  "description": "AI-powered Canvas MCP server with 45 tools for comprehensive academic management through Claude Desktop",
   "main": "src/server.js",
   "type": "module",
   "bin": {
@@ -9,11 +9,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/notioc/canvas-mcp-server.git"
+    "url": "https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git"
   },
-  "homepage": "https://github.com/notioc/canvas-mcp-server",
+  "homepage": "https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server",
   "bugs": {
-    "url": "https://github.com/notioc/canvas-mcp-server/issues"
+    "url": "https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server/issues"
   },
   "directories": {
     "example": "examples",
@@ -22,10 +22,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/server.js",
-    "api": "node api-server.js",
-    "dev": "node dist/src/server.js",
-    "test": "node test-server.js",
-    "test:server": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node dist/src/server.js"
   },
   "keywords": [
     "mcp",
@@ -45,10 +42,12 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fuse.js": "^7.0.0",
+    "jsdom": "^26.1.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
     "parse-link-header": "^2.0.0",
     "pdf-parse": "^1.1.1",
+    "puppeteer": "^24.15.0",
     "ts-node": "^10.9.2",
     "zod": "^3.25.23"
   },

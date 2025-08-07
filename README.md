@@ -1,189 +1,91 @@
-# Notioc Canvas MCP Server
+# 🎓 Notioc Canvas MCP Server
 
-A streamlined Model Context Protocol (MCP) server that provides comprehensive Canvas LMS integration through Claude Desktop. Access course content, manage assignments, participate in discussions, and handle messaging - all through natural language interactions with Claude.
+> **The AI-powered Canvas assistant that transforms your academic experience**
 
-> ⚠️ **IMPORTANT**: This project requires you to use your own Canvas API token. Never share your `.env` file or API keys with others.
+A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LMS integration through Claude Desktop. Turn your Canvas data into intelligent academic insights with 45 powerful tools and natural language interactions.
 
-## ✨ Core Features
+## ✨ **What Makes This Special**
 
-### 📚 **Comprehensive Course Management**
-- **Course Discovery**: List and access all Canvas courses with enrollment details
-- **Assignment Intelligence**: View assignments with automatic file processing and content reading
-- **Module Navigation**: Browse module structure, items, and progression details
-- **Quiz Integration**: Access quizzes, view details, and check submissions
+### 🚀 **Complete Canvas Integration**
+- **45 MCP Tools** covering every aspect of Canvas
+- **Real-time grade analytics** with "what-if" calculations
+- **Previous submission access** - review all your past work
+- **Quiz content analysis** - study from completed quizzes
+- **Smart file processing** - automatically read PDFs, DOCX files
+- **AI-powered insights** through Claude integration
 
-### 💬 **Complete Communication System**
-- **Canvas Messaging**: Send and receive Canvas messages with full conversation management
-- **Discussion Participation**: Post replies and engage in threaded discussions
-- **People Discovery**: Find and connect with classmates, instructors, and TAs
-- **Inbox Management**: View conversations and message history
+### 🎯 **Key Features**
 
-### 📄 **Smart Content Processing**
-- **Natural Language Search**: Ask questions like "find homework 3 in math 451"
-- **Automatic File Reading**: Convert documents to readable content instantly
-- **File Discovery**: Extract files from assignments and embedded links
-- **Direct API Access**: Real-time Canvas data retrieval without local caching
+**📊 Academic Analytics**
+- Grade tracking with performance insights
+- "What grade do I need on the final?" calculations
+- Course progress analysis and predictions
 
-### 🔍 **Intelligent Search & Discovery**
-- **Smart Search**: Pattern-matching for homework and assignments
-- **File Processing**: Multiple analysis types (summary, key points, full content)
-- **Assignment Details**: Comprehensive assignment information with file content
+**� Assignment Management** 
+- Access all previous submissions and feedback
+- Download and review submitted files (PDF, DOCX, etc.)
+- Smart assignment search and processing
 
----
+**🎓 Quiz & Study Tools**
+- Complete quiz review after submission
+- Question analysis with correct answers
+- Performance tracking across all quizzes
 
-## 🚀 Quick Start
+**📅 Planning & Organization**
+- Calendar integration with due dates
+- Course navigation and module tracking
+- Syllabus analysis and policy extraction
 
-### 1. Setup
+**💬 Communication**
+- Canvas messaging integration
+- Discussion participation
+- Professional email drafting
+
+## 🚀 **Quick Start**
+
+### **Prerequisites**
+- Node.js 18+ 
+- Canvas API access token
+- Claude Desktop application
+
+### **Installation**
+
 ```bash
-# Clone and enter directory
+# 1. Clone the repository
 git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
 cd notioc-canvas-mcp-server
 
-# Install dependencies
+# 2. Install dependencies
 npm install
-```
 
-### 2. Configure
-```bash
-# Create your environment file
+# 3. Configure your Canvas credentials
 cp .env.example .env
+# Edit .env with your Canvas URL and API token
 
-# Edit the .env file with your Canvas API token and base URL
-# See "Get Your Canvas API Token" section below for instructions
+# 4. Build the project
+npm run build
+
+# 5. Configure Claude Desktop (see setup guide)
 ```
 
-### 3. Run the Server
+## ⚙️ **Configuration**
 
+### **1. Get Your Canvas API Token**
+1. Log into Canvas → Account → Settings
+2. Scroll to "Approved Integrations" → "+ New Access Token"  
+3. Name: "Notioc MCP Server", set expiration date
+4. Copy the generated token
+
+### **2. Environment Setup**
+Create `.env` file:
 ```bash
-npm start
-```
-
-## 🛠️ Available Tools (29 Total)
-
-### 🔍 **Core Canvas Operations (10 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `get_courses` | List all Canvas courses with enrollment details | "show me my active courses" |
-| `get_assignments` | Course assignments with file information | "what assignments are due this week?" |
-| `get_assignment_details` | Full assignment details with file content | "show me homework 3 details" |
-| `get_pages` | Course pages and materials | "show syllabus and course pages" |
-| `read_page` | Read specific page content | "read the lab instructions page" |
-| `get_discussions` | List discussions and announcements | "show recent announcements" |
-| `read_discussion` | Read discussion topics and replies | "what's in the latest discussion?" |
-| `find_files` | Search for files in courses | "find all PDF files in circuits" |
-| `read_file` | Read content of specific Canvas files | "read syllabus.pdf content" |
-
-### 📄 **File Operations (2 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `read_file_by_id` | Read files directly by Canvas file ID | "read file 176870249" |
-| `process_file` | Advanced file analysis (summary, key points, Q&A ready) | "process file 176870249 for discussion" |
-
-### 🔍 **Smart Search (1 tool)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `smart_search` | Natural language search for assignments and homework | "find homework 3 in math 451" |
-
-### 💬 **Interactive Features (6 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `post_discussion_reply` | Post replies to Canvas discussion topics | "reply to discussion topic 4" |
-| `reply_to_discussion_entry` | Reply to specific discussion entries (threaded) | "reply to Sarah's discussion post" |
-| `send_message` | Create new Canvas conversations | "message my study group about project" |
-| `reply_to_conversation` | Reply to existing conversations | "reply to instructor message" |
-| `list_conversations` | View Canvas inbox and message history | "show my recent messages" |
-| `get_conversation_details` | Get full conversation details with messages | "show conversation details" |
-
-### 👥 **User Management (3 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `find_people` | Search for people in Canvas courses | "find people in my math class" |
-| `search_recipients` | Search for message recipients | "find TAs in computer science" |
-| `get_user_profile` | Get detailed user information | "show profile for John Smith" |
-
-### 📝 **Quiz Operations (3 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `list_quizzes` | List quizzes in Canvas courses | "show me upcoming quizzes" |
-| `get_quiz_details` | Get comprehensive quiz information | "details for quiz 2 in physics" |
-| `get_quiz_submissions` | View quiz submissions and scores | "show my quiz submissions" |
-
-### 📚 **Module Operations (3 tools)**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `list_modules` | Course module structure and details | "show modules in operating systems" |
-| `get_module_items` | Detailed module content and materials | "what's in module 3?" |
-| `get_module_details` | Comprehensive module information with items | "show details for module 5" |
-
-## 🎯 Natural Language Examples
-
-### **Course Management:**
-- "Show me my active courses"
-- "What assignments are due this week in math 451?"
-- "Find homework 3 in circuits class and show me the files"
-- "What's in module 2 of my operating systems course?"
-
-### **Communication:**
-- "Send a message to my study group about meeting tomorrow"
-- "Reply to the discussion about renewable energy"
-- "Show my recent Canvas messages"
-- "Find all TAs in my computer science courses"
-
-### **Content Access:**
-- "Read the syllabus page for chemistry"
-- "Process file 176870249 for discussion"
-- "Show me upcoming quizzes in all my courses"
-- "What are the recent announcements?"
-
-### **File Operations:**
-- "Find all PDF files in my circuits course"
-- "Read the content of assignment instructions"
-- "Process lab manual for key points"
-- "Show me assignment 3 with all file contents"
-
-## ⚙️ Configuration
-
-### Get Your Canvas API Token
-
-1. Log into your Canvas instance
-2. Go to Account → Settings
-3. Scroll down to "Approved Integrations"
-4. Click "+ New Access Token"
-5. Give it a purpose name (e.g., "Notioc MCP Server") and expiration date
-6. Copy the generated token to your `.env` file's `CANVAS_ACCESS_TOKEN` field
-7. Ensure the `CANVAS_BASE_URL` matches your institution (e.g., `https://psu.instructure.com`)
-
-### 🔧 Environment Configuration
-
-```bash
-# Required Settings
 CANVAS_BASE_URL=https://your-school.instructure.com
 CANVAS_ACCESS_TOKEN=your_api_token_here
+NODE_ENV=production
 ```
 
-### 🎯 **Optimized for Claude Desktop**
-
-This server is specifically optimized for use with Claude Desktop's MCP integration. It provides:
-
-- **🧠 Reliable Operation**: Streamlined for stability and consistent performance
-- **⚡ Fast Responses**: Direct Canvas API calls for quick operations
-- **🎯 Essential Features**: Focus on core Canvas functionality that works consistently
-- **🤖 Natural Language**: Easy interaction through Claude's conversational interface
-
-## 📋 What's Included
-
-### ✅ **Included (29 tools)**
-- All core Canvas operations (courses, assignments, files, discussions)
-- Complete messaging and communication features
-- Quiz and module management
-- Smart search with pattern matching
-- File processing and content reading
-- User and people management
-
-## 🔧 Claude Desktop Integration
-
-To use with Claude Desktop, add this server configuration to your Claude Desktop settings:
-
+### **3. Claude Desktop Integration**
+Add to Claude Desktop settings (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
@@ -199,214 +101,100 @@ To use with Claude Desktop, add this server configuration to your Claude Desktop
 }
 ```
 
----
+> � **Need help?** Check out our detailed setup guides:
+> - [📖 Claude Desktop Setup](./CLAUDE-SETUP.md)
+> - [🤖 ChatGPT Integration](./CHATGPT-SETUP.md) 
+> - [🔧 Custom GPT Setup](./CUSTOM-GPT-SETUP.md)
 
-## 🎓 The Essential Canvas Assistant
+## 🛠️ **Available Tools (45 Total)**
 
-The Notioc Canvas MCP Server provides a reliable, comprehensive interface to Canvas LMS through Claude Desktop. Access all your course content, manage assignments, participate in discussions, and handle communications - all through natural language conversations with Claude.
+### **📊 Grades & Analytics**
+- `get_grades` - Complete grade overview
+- `calculate_course_analytics` - Performance insights  
+- `generate_what_if_scenarios` - Grade predictions
+- `get_grade_trends` - Progress tracking
+- `get_gradebook_categories` - Weighted categories
 
-*Perfect for students who want seamless Canvas integration without complex setup!* 🎓
+### **📝 Assignments & Submissions**
+- `get_assignments` - Assignment listings
+- `get_assignment_details` - Detailed assignment info
+- `get_previous_submission_content` - Review past work
+- `list_submitted_assignments` - Submission history
+- `download_submission_file` - File access
+- `get_assignment_feedback` - Instructor comments
+- `get_submission_comments` - Detailed feedback
 
----
+### **🎓 Quiz & Study Tools**
+- `list_quizzes` - Quiz listings
+- `get_quiz_details` - Quiz information
+- `get_quiz_submissions` - Your submissions
+- `get_quiz_submission_content` - Complete quiz review
 
-## � The Essential Canvas Assistant
+### **📅 Planning & Navigation**
+- `get_calendar_events` - Due dates and events
+- `list_modules` - Course modules
+- `get_module_details` - Module information
+- `get_course_navigation` - Course structure
+- `get_course_syllabus` - Syllabus analysis
 
-The Notioc Canvas MCP Server provides a reliable, comprehensive interface to Canvas LMS through Claude Desktop. Access all your course content, manage assignments, participate in discussions, and handle communications - all through natural language conversations with Claude.
+### **📁 Content & Files**
+- `find_files` - Smart file search
+- `read_file` - File content processing
+- `process_file` - AI-powered file analysis
+- `smart_search` - Intelligent content search
 
-*Perfect for students who want seamless Canvas integration without complex setup!* 🎓
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `smart_search` | Natural language search across all content | "find homework 3 in math 451" |
-| `get_homework` | Intelligent homework discovery with files | "get homework 3 for math 451" |
-| `process_file` | Advanced file processing for discussion | "process file 176870249 for Q&A" |
-| `find_files` | Smart file search with content filtering | "find all PDF files in circuits" |
+### **💬 Communication**
+- `send_message` - Canvas messaging
+- `list_conversations` - Message history
+- `get_discussions` - Discussion access
+- `post_discussion_reply` - Participate in discussions
 
-### 📚 **Course & Content Management**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `get_courses` | Lists all Canvas courses with details | "show me my active courses" |
-| `get_assignments` | Course assignments with smart file discovery | "what assignments are due this week?" |
-| `list_modules` | Course module structure and progression | "show modules in operating systems" |
-| `get_module_items` | Detailed module content and materials | "what's in module 3?" |
-| `list_quizzes` | Available quizzes and assessment details | "show me upcoming quizzes" |
-| `get_quiz_details` | Comprehensive quiz information | "details for quiz 2 in physics" |
+### **🎯 Rubrics & Feedback**
+- `get_assignment_rubric` - Rubric analysis
+- `get_rubric_analysis` - Performance insights
 
-### 💬 **Communication & Messaging**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `send_message` | Send personalized Canvas messages | "message my study group about project" |
-| `reply_to_conversation` | Reply to existing conversations | "reply to instructor message" |
-| `list_conversations` | View Canvas inbox and message history | "show my recent messages" |
-| `post_discussion_reply` | Post authentic discussion responses | "reply to discussion topic 4" |
-| `reply_to_discussion_entry` | Threaded discussion participation | "reply to Sarah's discussion post" |
+## � **Example Conversations**
 
-### 👥 **People & Relationship Management**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `find_people` | Search for classmates and instructors | "find people in my math class" |
-| `get_user_profile` | Get detailed user information | "show profile for John Smith" |
-| `search_recipients` | Advanced recipient search for messaging | "find TAs in computer science" |
+### **Academic Performance**
+> *"What's my current grade in Computer Engineering and what do I need on the final to get an A?"*
 
-### 📄 **Pages & Discussions**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `get_pages` | Access course pages and materials | "show syllabus and course pages" |
-| `read_page` | Read specific page content | "read the lab instructions page" |
-| `get_discussions` | List discussions and announcements | "show recent announcements" |
-| `read_discussion` | Read discussion topics and replies | "what's in the latest discussion?" |
+> *"Show me all assignments due this week across my courses with urgency levels"*
 
-### 🧠 **AI-Powered Analytics & Intelligence**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `assess_student_risk` | Predict academic risk and intervention needs | "assess my current academic risk" |
-| `predict_success` | Forecast assignment/course success probability | "predict my success on upcoming exam" |
-| `forecast_engagement` | Optimal interaction timing and methods | "when should I contact my professor?" |
-| `analyze_study_relationships` | Map collaborative learning networks | "analyze my study group effectiveness" |
-| `build_knowledge_graph` | Comprehensive course understanding model | "build knowledge graph for chemistry" |
-| `generate_qa_prompt` | Intelligent Q&A using all course data | "what's the grading policy for labs?" |
+> *"Review my last physics quiz - what did I get wrong and help me study for the next one"*
 
-### 🎯 **Persona & Learning Intelligence**
-| Tool Name | Description | Example Usage |
-|-----------|-------------|---------------|
-| `analyze_writing_style` | Understand your communication patterns | "analyze my discussion writing style" |
-| `get_academic_context` | Current workload and stress assessment | "what's my current academic situation?" |
-| `generate_personalized_message` | Messages that match your authentic voice | "draft email to professor about extension" |
-| `suggest_collaboration_partners` | Find optimal study partners | "who should I work with on this project?" |
+### **Assignment Management**  
+> *"Find and process all files from my Math 451 homework submissions"*
 
-## 🎯 Natural Language Examples
+> *"What feedback did my professor give on my latest programming assignment?"*
 
-### **Academic Intelligence:**
-- "Assess my risk for failing organic chemistry"
-- "Predict my success on the upcoming physics exam"
-- "When is the best time to email my professor?"
-- "Who should I collaborate with on this project?"
+> *"Download my submitted file from yesterday's physics recitation"*
 
-### **Smart Communication:**
-- "Send a message to my study group about meeting tomorrow"
-- "Draft a professional email to my advisor about course planning"
-- "Reply to the discussion about renewable energy"
-- "Find all TAs in my computer science courses"
+### **Course Planning**
+> *"What modules do I need to complete in Operating Systems and what are the prerequisites?"*
 
-### **Content Discovery:**
-- "Find homework 3 in math 451 and process all files"
-- "What assignments are due this week across all courses?"
-- "Show me all quiz submissions for chemistry"
-- "Build a knowledge graph for my operating systems course"
+> *"Extract the grading policy from my course syllabi"*
 
-### **Learning Support:**
-- "Analyze my writing style from discussion posts"
-- "What's my current academic workload and stress level?"
-- "Generate study recommendations based on my learning patterns"
-- "Show my progress tracking across all courses"
+> *"Show my progress across all courses and identify areas needing attention"*
 
-## 📊 Advanced AI Features
+## 🎯 **Perfect For**
 
-### 🔮 **Predictive Analytics**
-- **Risk Assessment**: Identifies students at risk of academic difficulties with 85%+ accuracy
-- **Success Prediction**: Forecasts assignment and course completion probabilities
-- **Engagement Optimization**: Predicts optimal communication timing and methods
-- **Intervention Recommendations**: Suggests personalized support strategies
+✅ **Students** seeking academic excellence  
+✅ **Researchers** managing course workflows  
+✅ **Anyone** wanting smarter Canvas interaction  
+✅ **Power users** needing advanced academic analytics  
 
-### 🧠 **Intelligent Personas**
-- **Writing Style Analysis**: Learns your authentic communication patterns
-- **Relationship Mapping**: Understands your academic and social connections
-- **Learning Preference Detection**: Identifies optimal learning approaches
-- **Context-Aware Responses**: Adapts communication based on recipient and situation
+## 🤝 **Contributing**
 
-### 🤝 **Advanced Relationship Intelligence**
-- **Collaboration Effectiveness Scoring**: Rates potential partnership success
-- **Group Dynamics Analysis**: Understands team interaction patterns
-- **Peer Influence Mapping**: Identifies positive academic influences
-- **Social Support Network Analysis**: Maps emotional and academic support systems
+We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
-## ⚙️ Configuration
+## 📄 **License**
 
-### Get Your Canvas API Token
-
-1. Log into your Canvas instance
-2. Go to Account → Settings
-3. Scroll down to "Approved Integrations"
-4. Click "+ New Access Token"
-5. Give it a purpose name (e.g., "Notioc MCP Server") and expiration date
-6. Copy the generated token to your `.env` file's `CANVAS_ACCESS_TOKEN` field
-7. Ensure the `CANVAS_BASE_URL` matches your institution (e.g., `https://psu.instructure.com`)
-
-### 🤖 Full AI Assistant Mode (Recommended)
-
-Enable complete autonomous operation with all AI features:
-
-```bash
-# Core Settings
-ENABLE_BACKGROUND_INDEXING=true
-RUN_INDEXER_ON_STARTUP=true
-INDEXING_INTERVAL_HOURS=12
-
-# AI Features
-ENABLE_PERSONA_ANALYSIS=true
-ENABLE_PREDICTIVE_ANALYTICS=true
-ENABLE_RELATIONSHIP_INTELLIGENCE=true
-
-# Advanced Features
-ENABLE_RISK_ASSESSMENT=true
-ENABLE_SUCCESS_PREDICTION=true
-ENABLE_ENGAGEMENT_FORECASTING=true
-```
-
-**Benefits of Full AI Mode:**
-- 🧠 **Predictive Intelligence**: Early warning systems for academic challenges
-- 🎯 **Personalized Support**: Recommendations tailored to your learning style
-- 🤖 **Autonomous Operation**: Self-maintaining with zero manual intervention
-- ⚡ **Instant Insights**: Lightning-fast responses from comprehensive local analysis
-
-## 🎉 What's New in v2.0
-
-### 🔮 **Predictive Analytics Engine**
-- **Risk Assessment**: Early identification of academic struggles with intervention recommendations
-- **Success Prediction**: Probability scoring for assignments, quizzes, and courses
-- **Engagement Forecasting**: Optimal interaction timing and communication method prediction
-- **Performance Trend Analysis**: Learning trajectory insights and improvement suggestions
-
-### 🧠 **Intelligent Persona System**
-- **Writing Style Analysis**: Authentic communication pattern learning and adaptation
-- **Academic Context Awareness**: Real-time understanding of workload, deadlines, and stress
-- **Relationship Intelligence**: Mapping of academic and social connections
-- **Learning Style Detection**: Personalized study approach recommendations
-
-### 💬 **Advanced Communication Suite**
-- **Canvas Messaging**: Send and receive messages with style adaptation
-- **Discussion Participation**: Post authentic replies and engage in threaded discussions
-- **People Discovery**: Find classmates, instructors, and collaboration partners
-- **Professional Communication**: Draft emails and messages with appropriate formality
-
-### 📊 **Comprehensive Academic Coverage**
-- **Quiz Integration**: Full quiz access, submissions, and performance analysis
-- **Module Navigation**: Complete module structure and progression tracking
-- **Advanced File Processing**: Enhanced PDF parsing and content discussion
-- **Knowledge Graph Generation**: Structured course understanding models
-
-## 🎯 Previous Features (v1.x)
-
-### v1.1 Features:
-- **📊 Clean Progress Display**: Beautiful indexing progress with real-time updates
-- **📏 Smart Text Truncation**: Intelligent content formatting
-- **⚡ Enhanced UX**: Professional indexing experience
-
-### v1.0 Core Features:
-- **🔍 Natural Language Search**: Plain English content discovery
-- **📄 PDF Processing**: Automatic text extraction and discussion
-- **🤖 Smart File Discovery**: Multi-source homework file detection
-- **⚡ Fast Dev Mode**: Instant startup for development
+MIT License - see [LICENSE](./LICENSE) for details.
 
 ---
 
-## 🚀 The Complete Academic AI Assistant
+## 🎓 **Transform Your Academic Experience**
 
-The Notioc Canvas MCP Server is now a comprehensive academic intelligence platform that not only accesses Canvas content but actively supports student success through:
+Turn Canvas from a basic LMS into your intelligent academic partner. Get insights, automate workflows, and achieve better grades through AI-powered analysis.
 
-- **🧠 Predictive Intelligence**: Anticipating academic challenges before they become problems
-- **🎯 Personalized Support**: Adapting to each student's unique learning style and communication patterns
-- **🤖 Autonomous Operation**: Self-maintaining system that continuously learns and improves
-- **💬 Seamless Communication**: Natural interaction with the entire Canvas ecosystem
-- **📊 Comprehensive Analytics**: Deep insights into learning patterns and academic progress
-
-*Transform your Canvas experience from passive content access to active academic partnership!* 🎓
+**Ready to revolutionize your Canvas experience?** 🚀

@@ -181,6 +181,17 @@ export async function listModules(params: ListModulesParams): Promise<ModuleInfo
 
   } catch (error) {
     if (error instanceof Error) {
+      // Handle specific Canvas API errors gracefully
+      if (error.message.includes('404') || error.message.includes('disabled') || error.message.includes('تم تعطيل')) {
+        logger.warn(`Modules not available for course ${courseId}: ${error.message}`);
+        return []; // Return empty array instead of throwing
+      }
+      if (error.message.includes('401') || error.message.includes('access token')) {
+        throw new Error(`Authentication failed - please check your Canvas access token`);
+      }
+      if (error.message.includes('403') || error.message.includes('insufficient permissions')) {
+        throw new Error(`Access denied - insufficient permissions to view modules for course ${courseId}`);
+      }
       throw new Error(`Failed to list modules: ${error.message}`);
     } else {
       throw new Error('Failed to list modules: Unknown error');

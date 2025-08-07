@@ -4,6 +4,7 @@
 import { listCourses } from './courses.js';
 import { findBestMatch } from '../lib/search.js';
 import { fetchAllPaginated, CanvasAssignment } from '../lib/pagination.js';
+import { parseCanvasUrl, isCanvasUrl } from '../lib/url-parser.js';
 
 export interface AssignmentListParams {
   canvasBaseUrl: string;
@@ -177,14 +178,47 @@ export async function getAssignmentDetails(params: {
   accessToken: string;
   courseId?: string;
   courseName?: string;
-  assignmentName: string;
+  assignmentName?: string;
+  assignmentId?: string;
+  fullUrl?: string; // New: accepts full Canvas assignment URL
 }): Promise<AssignmentInfo & { allFiles: Array<{id: string, name: string, url: string, source: string}> }> {
   
-  const assignments = await listAssignments(params);
-  const assignment = findBestMatch(params.assignmentName, assignments, ['name']);
+  let { canvasBaseUrl, accessToken, courseId, courseName, assignmentName, assignmentId, fullUrl } = params;
   
-  if (!assignment) {
-    throw new Error(`Could not find assignment matching "${params.assignmentName}"`);
+  // Handle full Canvas URL
+  if (fullUrl && isCanvasUrl(fullUrl)) {
+    const parsedUrl = parseCanvasUrl(fullUrl);
+    if (parsedUrl.courseId) {
+      courseId = parsedUrl.courseId;
+    }
+    if (parsedUrl.assignmentId) {
+      assignmentId = parsedUrl.assignmentId;
+    }
+    if (parsedUrl.baseUrl) {
+      canvasBaseUrl = parsedUrl.baseUrl;
+    }
+  }
+  
+  let assignment: AssignmentInfo;
+  
+  if (assignmentId) {
+    // If we have assignmentId, fetch directly
+    const assignments = await listAssignments({ canvasBaseUrl, accessToken, courseId, courseName });
+    const foundAssignment = assignments.find(a => a.id === assignmentId);
+    if (!foundAssignment) {
+      throw new Error(`Could not find assignment with ID "${assignmentId}"`);
+    }
+    assignment = foundAssignment;
+  } else if (assignmentName) {
+    // Use name matching as before
+    const assignments = await listAssignments({ canvasBaseUrl, accessToken, courseId, courseName });
+    const foundAssignment = findBestMatch(assignmentName, assignments, ['name']);
+    if (!foundAssignment) {
+      throw new Error(`Could not find assignment matching "${assignmentName}"`);
+    }
+    assignment = foundAssignment;
+  } else {
+    throw new Error('Either assignmentName, assignmentId, or fullUrl must be provided');
   }
 
   // Combine all files from attachments and embedded links
