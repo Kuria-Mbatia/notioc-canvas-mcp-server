@@ -11,7 +11,7 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 - **Real-time grade analytics** with "what-if" calculations
 - **Previous submission access** - review all your past work
 - **Quiz content analysis** - study from completed quizzes
-- **Smart file processing** - automatically read PDFs, DOCX files
+- **Smart file processing** - automatically read 60+ document types (PDF, DOCX, XLSX, PPTX, images, audio)
 - **AI-powered insights** through Claude integration
 
 ### 🎯 **Key Features**
@@ -81,8 +81,22 @@ Create `.env` file:
 ```bash
 CANVAS_BASE_URL=https://your-school.instructure.com
 CANVAS_ACCESS_TOKEN=your_api_token_here
+
+# Optional: LlamaParse for advanced document processing
+LLAMA_CLOUD_API_KEY=your_llamaparse_api_key_here
+ENABLE_LLAMAPARSE=false
+LLAMA_PARSE_ALLOW_UPLOAD=false
+
 NODE_ENV=production
 ```
+
+**Optional LlamaParse Configuration:**
+- `LLAMA_CLOUD_API_KEY`: API key from LlamaIndex for processing 60+ document types
+- `ENABLE_LLAMAPARSE=true`: Enable advanced document extraction (requires API key)
+- `LLAMA_PARSE_ALLOW_UPLOAD=true`: Allow uploading files to LlamaParse (privacy consideration)
+- `LLAMA_ONLY=true`: Use only LlamaParse (disable local PDF parsing)
+
+> **📄 Document Support**: With LlamaParse enabled, the server can process PDFs, Word docs, Excel sheets, PowerPoints, images (OCR), HTML, and 50+ other formats.
 
 ### **3. Claude Desktop Integration**
 Add to Claude Desktop settings (`claude_desktop_config.json`):

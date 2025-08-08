@@ -7,6 +7,19 @@ import { listCourses } from './courses.js';
 import Fuse from 'fuse.js';
 import { createRequire } from 'module';
 import { logger } from '../lib/logger.js';
+import { parseWithLlama, isFileSupported, LlamaParseError } from '../lib/llamaparse.js';
+
+// LlamaParse configuration (loaded from environment)
+const LLAMA_CONFIG = {
+  apiKey: process.env.LLAMA_CLOUD_API_KEY || '',
+  enabled: process.env.ENABLE_LLAMAPARSE === 'true',
+  llamaOnly: process.env.LLAMA_ONLY === 'true',
+  resultFormat: process.env.LLAMA_PARSE_RESULT_FORMAT || 'markdown',
+  timeoutMs: parseInt(process.env.LLAMA_PARSE_TIMEOUT_MS || '120000'),
+  pollIntervalMs: parseInt(process.env.LLAMA_PARSE_POLL_INTERVAL_MS || '2000'),
+  maxMB: parseInt(process.env.LLAMA_PARSE_MAX_MB || '50'),
+  allowUpload: process.env.LLAMA_PARSE_ALLOW_UPLOAD === 'true'
+};
 
 // PDF parsing function - use require to avoid debug mode issues
 let pdfParse: any = null;
@@ -265,7 +278,7 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
     }
 
     const contentType = fileResponse.headers.get('content-type');
-    const content = await handleFileContent(fileResponse, contentType);
+    const content = await handleFileContent(fileResponse, contentType, fileToFetch.name);
 
     return { 
       name: fileToFetch.name, 
@@ -283,31 +296,83 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
 }
 
 // Helper function to handle different file content types
-async function handleFileContent(response: Response, contentType: string | null): Promise<string> {
-  // Suppress log message to keep progress bar clean
-  // console.log(`Handling file content with type: ${contentType}`);
+async function handleFileContent(response: Response, contentType: string | null, fileName?: string): Promise<string> {
+  // Get filename from response URL if not provided
+  const detectedFileName = fileName || response.url.split('/').pop() || 'unknown';
   
+  // Handle PDFs with LlamaParse integration
   if (contentType?.includes('application/pdf')) {
+    const buffer = await response.arrayBuffer();
+    
+    // Try LlamaParse first if enabled
+    if (LLAMA_CONFIG.enabled && LLAMA_CONFIG.apiKey) {
+      try {
+        logger.debug(`[Files] Attempting LlamaParse for PDF: ${detectedFileName}`);
+        
+        const result = await parseWithLlama(
+          {
+            buffer: Buffer.from(buffer),
+            filename: detectedFileName,
+            mime: contentType
+          },
+          {
+            apiKey: LLAMA_CONFIG.apiKey,
+            allowUpload: LLAMA_CONFIG.allowUpload,
+            resultFormat: LLAMA_CONFIG.resultFormat as 'markdown' | 'text',
+            timeoutMs: LLAMA_CONFIG.timeoutMs,
+            pollIntervalMs: LLAMA_CONFIG.pollIntervalMs,
+            maxBytes: LLAMA_CONFIG.maxMB * 1024 * 1024
+          }
+        );
+        
+        logger.info(`[Files] LlamaParse successful for PDF: ${detectedFileName} (${result.meta?.processingTime}ms)`);
+        return result.content;
+        
+      } catch (error) {
+        const llamaError = error as LlamaParseError;
+        logger.warn(`[Files] LlamaParse failed for PDF: ${detectedFileName} - ${llamaError.message}`);
+        
+        // If LLAMA_ONLY is true, don't try fallback
+        if (LLAMA_CONFIG.llamaOnly) {
+          return `[LlamaParse Error: ${llamaError.message}]\n\nDownload URL: ${response.url}`;
+        }
+        
+        // Otherwise, fall back to local PDF parsing
+        logger.debug(`[Files] Falling back to local PDF parsing for: ${detectedFileName}`);
+      }
+    }
+    
+    // Fallback to local PDF parsing (existing logic)
     const pdfParser = await initializePdfParse();
     if (pdfParser) {
       try {
-        const buffer = await response.arrayBuffer();
         const data = await pdfParser(buffer);
+        logger.debug(`[Files] Local PDF parsing successful: ${detectedFileName}`);
         return data.text;
       } catch (err) {
-        return "[Error extracting text from PDF]";
+        logger.warn(`[Files] Local PDF parsing failed: ${detectedFileName} - ${err}`);
+        return `[Error extracting text from PDF: ${err}]\n\nDownload URL: ${response.url}`;
       }
     } else {
-      return "[PDF parsing is not available]";
+      return `[PDF parsing is not available]\n\nDownload URL: ${response.url}`;
     }
-  } else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('text/html') || contentType?.includes('application/json')) {
+  } 
+  
+  // Handle text-based files (unchanged)
+  else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('text/html') || contentType?.includes('application/json')) {
     return await response.text();
-  } else {
-    // Fallback for other file types like .docx, .pptx etc.
-    // In a real scenario, you might use other libraries or just provide a download link.
-    // For now, we'll indicate that content extraction is not supported for this type.
+  } 
+  
+  // Handle unsupported file types
+  else {
     const fileType = contentType || 'unknown type';
-    return `[Binary file of type: ${fileType}. Content extraction not yet supported for this file type.]`;
+    const supportedByLlama = isFileSupported(detectedFileName);
+    
+    if (supportedByLlama && LLAMA_CONFIG.enabled) {
+      return `[File type ${fileType} is supported by LlamaParse but not enabled. Set ENABLE_LLAMAPARSE=true to process this file.]\n\nDownload URL: ${response.url}`;
+    } else {
+      return `[Binary file of type: ${fileType}. Content extraction not yet supported for this file type.]\n\nDownload URL: ${response.url}`;
+    }
   }
 }
 
