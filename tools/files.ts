@@ -358,6 +358,11 @@ async function handleFileContent(response: Response, contentType: string | null,
     }
   } 
   
+  // Handle documents and presentations with LlamaParse
+  else if (shouldUseLlamaParse(detectedFileName, contentType)) {
+    return await processWithLlamaParse(response, detectedFileName, contentType);
+  }
+  
   // Handle text-based files (unchanged)
   else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('text/html') || contentType?.includes('application/json')) {
     return await response.text();
@@ -373,6 +378,87 @@ async function handleFileContent(response: Response, contentType: string | null,
     } else {
       return `[Binary file of type: ${fileType}. Content extraction not yet supported for this file type.]\n\nDownload URL: ${response.url}`;
     }
+  }
+}
+
+// Helper function to determine if a file should use LlamaParse
+function shouldUseLlamaParse(fileName: string, contentType: string | null): boolean {
+  // Skip if LlamaParse is not enabled
+  if (!LLAMA_CONFIG.enabled || !LLAMA_CONFIG.apiKey) {
+    return false;
+  }
+
+  // Check by file extension first (most reliable)
+  if (isFileSupported(fileName)) {
+    return true;
+  }
+
+  // Check by content-type as fallback
+  const docTypes = [
+    // Microsoft Office
+    'application/vnd.openxmlformats-officedocument', // .docx, .pptx, .xlsx
+    'application/vnd.ms-', // .doc, .ppt, .xls
+    'application/msword',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.ms-excel',
+    
+    // Other document formats
+    'application/rtf',
+    'application/epub+zip',
+    'application/xml',
+    'text/xml',
+    
+    // Image formats (for OCR)
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/bmp',
+    'image/tiff',
+    'image/webp',
+    'image/svg+xml',
+    
+    // Audio formats
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/wav',
+    'audio/webm'
+  ];
+
+  return contentType ? docTypes.some(type => contentType.includes(type)) : false;
+}
+
+// Helper function to process files with LlamaParse
+async function processWithLlamaParse(response: Response, fileName: string, contentType: string | null): Promise<string> {
+  try {
+    logger.debug(`[Files] Attempting LlamaParse for document: ${fileName}`);
+    
+    const buffer = await response.arrayBuffer();
+    
+    const result = await parseWithLlama(
+      {
+        buffer: Buffer.from(buffer),
+        filename: fileName,
+        mime: contentType || undefined
+      },
+      {
+        apiKey: LLAMA_CONFIG.apiKey,
+        allowUpload: LLAMA_CONFIG.allowUpload,
+        resultFormat: LLAMA_CONFIG.resultFormat as 'markdown' | 'text',
+        timeoutMs: LLAMA_CONFIG.timeoutMs,
+        pollIntervalMs: LLAMA_CONFIG.pollIntervalMs,
+        maxBytes: LLAMA_CONFIG.maxMB * 1024 * 1024
+      }
+    );
+    
+    logger.info(`[Files] LlamaParse successful for document: ${fileName} (${result.meta?.processingTime}ms)`);
+    return result.content;
+    
+  } catch (error) {
+    const llamaError = error as LlamaParseError;
+    logger.warn(`[Files] LlamaParse failed for document: ${fileName} - ${llamaError.message}`);
+    
+    // For non-PDF files, we don't have a local fallback, so return error with download link
+    return `[LlamaParse Error: ${llamaError.message}]\n\nThis file type requires LlamaParse but processing failed. Please download manually:\n${response.url}`;
   }
 }
 
