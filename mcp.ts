@@ -28,6 +28,7 @@ import {
   createConversation, replyToConversation, listConversations, getConversationDetails,
   SendMessageParams, ReplyToConversationParams, ListConversationsParams
 } from './tools/messages.js';
+import { performSmartSearch, getCourseContentOverview } from './tools/smart-search.js';
 import { 
   findPeopleInCourse, searchRecipients, getUserProfile, getMyProfile,
   FindPeopleParams, SearchRecipientsParams
@@ -1930,116 +1931,170 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
       case 'smart_search': {
         const inputParams = input as any;
-        const query = inputParams.query.toLowerCase();
+        const query = inputParams.query;
         const includeFileContent = inputParams.includeFileContent !== false;
         
-        // Parse the query to extract course and assignment information
-        let courseName = '';
-        let assignmentName = '';
-        
-        // Extract course name patterns
-        const courseMatches = [
-          /(?:in|for|from)\s+(math\s*\d+|cmpen\s*\d+|cmpsc\s*\d+|ee\s*\d+|\w+\s*\d+)/i,
-          /(math|cmpen|cmpsc|ee)\s*(\d+)/i
-        ];
-        
-        for (const regex of courseMatches) {
-          const match = query.match(regex);
-          if (match) {
-            courseName = match[1] || `${match[1]} ${match[2]}`;
-            break;
-          }
-        }
-        
-        // Extract assignment/homework patterns
-        const assignmentMatches = [
-          /(?:homework|hw|project|proj|assignment|assign)\s*(\d+)/i,
-          /(hw\d+)/i
-        ];
-        
-        for (const regex of assignmentMatches) {
-          const match = query.match(regex);
-          if (match) {
-            assignmentName = match[1] ? `HW${match[1]}` : match[0];
-            break;
-          }
-        }
-        
-        // If we found course and assignment info, use get_homework
-        if (courseName && assignmentName) {
-          try {
-            const homework = await getAssignmentDetails({
-              ...getCanvasConfig(),
-              courseName,
-              assignmentName
-            });
+        try {
+          // Try to detect course context from user's courses
+          const courses = await listCourses(getCanvasConfig());
+          let bestCourse = null;
+          
+          // Simple course detection - look for course codes or names in query
+          const queryLower = query.toLowerCase();
+          for (const course of courses) {
+            const courseName = course.name.toLowerCase();
+            const courseCode = (course.courseCode || '').toLowerCase();
             
-            let markdown = `# 🔍 Smart Search Results\n\n`;
-            markdown += `**Query:** "${inputParams.query}"\n\n`;
-            markdown += `**Found:** ${homework.name}\n`;
-            markdown += `**Course:** ${courseName}\n`;
-            markdown += `**Due Date:** ${homework.dueAt ? new Date(homework.dueAt).toLocaleString() : 'N/A'}\n`;
-            markdown += `**Points:** ${homework.pointsPossible}\n\n`;
-            
-            if (homework.description) {
-              markdown += `## Assignment Description\n${homework.description}\n\n`;
+            if (queryLower.includes(courseName) || queryLower.includes(courseCode) || 
+                queryLower.includes(course.id.toString())) {
+              bestCourse = course;
+              break;
             }
-            
-            if (homework.allFiles.length > 0) {
-              markdown += `## 📁 Associated Files\n\n| File Name | Source | File ID |\n|---|---|---|\n`;
-              homework.allFiles.forEach(file => {
-                markdown += `| ${file.name} | ${file.source} | ${file.id} |\n`;
-              });
-              markdown += `\n`;
-              
-              if (includeFileContent) {
-                markdown += `## 📄 File Contents\n\n`;
-                for (const file of homework.allFiles) {
-                  try {
-                    const fileContent = await readFileById({ 
-                      ...getCanvasConfig(), 
-                      fileId: file.id 
-                    });
-                    markdown += `### ${file.name}\n\n\`\`\`\n${fileContent.content}\n\`\`\`\n\n`;
-                  } catch (error) {
-                    markdown += `### ${file.name}\n\n*Could not read file content: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`;
-                  }
-                }
-              }
-            } else {
-              markdown += `## 📁 Associated Files\n\n*No files found for this assignment.*\n\n`;
-            }
-            
+          }
+          
+          // If no specific course found, use the first active course
+          if (!bestCourse && courses.length > 0) {
+            bestCourse = courses.find(c => c.enrollmentState === 'active') || courses[0];
+          }
+          
+          if (!bestCourse) {
             return {
               content: [
                 {
                   type: "text",
-                  text: markdown
+                  text: `# 🔍 Smart Search Results\n\n**Query:** "${query}"\n\n❌ No courses available for search. Please check your Canvas access.`
                 }
               ]
             };
-          } catch (error) {
-            throw new Error(`Could not find homework: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
-        }
-        
-        // If no specific homework found, provide a helpful response
-        let response = `# 🔍 Smart Search Results\n\n`;
-        response += `**Query:** "${inputParams.query}"\n\n`;
-        response += `I couldn't automatically parse your request. Here are some examples of what I can help with:\n\n`;
-        response += `- "find homework 3 in math 451"\n`;
-        response += `- "get hw2 for cmpen 431"\n`;
-        response += `- "show assignment 1 files"\n\n`;
-        response += `Please try rephrasing your query with more specific course and assignment information.`;
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response
+          
+          // Perform smart search using our new system
+          const searchResult = await performSmartSearch({
+            ...getCanvasConfig(),
+            courseId: bestCourse.id,
+            courseName: bestCourse.name,
+            query,
+            forceRefresh: false,
+            includeContent: includeFileContent
+          });
+          
+          if (!searchResult.success) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `# 🔍 Smart Search Results\n\n**Query:** "${query}"\n\n❌ Search failed: ${searchResult.error || 'Unknown error'}`
+                }
+              ]
+            };
+          }
+          
+          // Format results
+          let markdown = `# 🔍 Smart Search Results\n\n`;
+          markdown += `**Query:** "${query}"\n`;
+          markdown += `**Course:** ${searchResult.courseInfo.courseName} (${searchResult.courseInfo.courseId})\n`;
+          markdown += `**Results:** ${searchResult.metadata.totalResults} items found in ${searchResult.metadata.searchTime}ms\n`;
+          markdown += `**Method:** ${searchResult.metadata.discoveryMethod}`;
+          
+          if (searchResult.metadata.apiRestrictions) {
+            markdown += ` (${searchResult.metadata.apiRestrictions})`;
+          }
+          markdown += `\n\n`;
+          
+          // Show files
+          if (searchResult.results.files.length > 0) {
+            markdown += `## 📁 Files Found (${searchResult.results.files.length})\n\n`;
+            markdown += `| File Name | File ID | Can Process | Relevance | Source |\n`;
+            markdown += `|-----------|---------|-------------|-----------|--------|\n`;
+            
+            searchResult.results.files.slice(0, 10).forEach(file => {
+              const canProcess = file.canProcess ? '✅' : '❌';
+              const relevance = (file.relevance * 100).toFixed(1) + '%';
+              const fileName = file.fileName.length > 40 ? file.fileName.substring(0, 37) + '...' : file.fileName;
+              markdown += `| ${fileName} | \`${file.fileId}\` | ${canProcess} | ${relevance} | ${file.source} |\n`;
+            });
+            
+            if (searchResult.results.files.length > 10) {
+              markdown += `\n*Showing top 10 of ${searchResult.results.files.length} files found.*\n`;
             }
-          ]
-        };
+            markdown += `\n`;
+            
+            // Show top file details
+            if (searchResult.results.files.length > 0) {
+              const topFile = searchResult.results.files[0];
+              markdown += `### 🎯 Top Result: ${topFile.fileName}\n\n`;
+              markdown += `- **File ID:** \`${topFile.fileId}\`\n`;
+              markdown += `- **Can Process:** ${topFile.canProcess ? '✅ Yes (LlamaParse supported)' : '❌ No'}\n`;
+              markdown += `- **Relevance:** ${(topFile.relevance * 100).toFixed(1)}%\n`;
+              markdown += `- **Source:** ${topFile.source}\n`;
+              markdown += `- **URL:** ${topFile.url}\n\n`;
+              
+              if (topFile.canProcess) {
+                markdown += `💡 *You can use \`process_file\` with ID \`${topFile.fileId}\` to analyze this file's content.*\n\n`;
+              }
+            }
+          }
+          
+          // Show pages
+          if (searchResult.results.pages.length > 0) {
+            markdown += `## 📄 Pages Found (${searchResult.results.pages.length})\n\n`;
+            searchResult.results.pages.slice(0, 5).forEach((page, i) => {
+              const relevance = (page.relevance * 100).toFixed(1) + '%';
+              markdown += `${i + 1}. **${page.name}** (${relevance} relevance)\n`;
+              markdown += `   - URL: ${page.url}\n\n`;
+            });
+          }
+          
+          // Show links
+          if (searchResult.results.links.length > 0) {
+            markdown += `## 🔗 Links Found (${searchResult.results.links.length})\n\n`;
+            searchResult.results.links.slice(0, 5).forEach((link, i) => {
+              const relevance = (link.relevance * 100).toFixed(1) + '%';
+              markdown += `${i + 1}. **${link.title}** (${link.type}, ${relevance} relevance)\n`;
+              markdown += `   - URL: ${link.url}\n`;
+              markdown += `   - Source: ${link.source}\n\n`;
+            });
+          }
+          
+          // Show suggestions
+          if (searchResult.suggestions && searchResult.suggestions.length > 0) {
+            markdown += `## 💡 Suggestions\n\n`;
+            searchResult.suggestions.forEach(suggestion => {
+              markdown += `- ${suggestion}\n`;
+            });
+            markdown += `\n`;
+          }
+          
+          // No results
+          if (searchResult.metadata.totalResults === 0) {
+            markdown += `## ❌ No Results Found\n\n`;
+            markdown += `No files, pages, or links matched your search query.\n\n`;
+            markdown += `**Try:**\n`;
+            markdown += `- Using broader terms like "lecture", "notes", "slides"\n`;
+            markdown += `- Searching for specific topics like "uncertainty", "quantum", "optics"\n`;
+            markdown += `- Using file numbers like "L8", "assignment 3"\n\n`;
+          }
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: markdown
+              }
+            ]
+          };
+          
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `# 🔍 Smart Search Results\n\n**Query:** "${query}"\n\n❌ Search failed: ${errorMsg}`
+              }
+            ]
+          };
+        }
       }
 
       case 'process_file': {
