@@ -11,7 +11,7 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 - **Real-time grade analytics** with "what-if" calculations
 - **Previous submission access** - review all your past work
 - **Quiz content analysis** - study from completed quizzes
-- **Smart file processing** - automatically read 60+ document types (PDF, DOCX, XLSX, PPTX, images, audio)
+- **Advanced document processing** - extract content from 94+ file types (PDF, DOCX, XLSX, PPTX, images, audio)
 - **AI-powered insights** through Claude integration
 
 ### 🎯 **Key Features**
@@ -21,10 +21,11 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 - "What grade do I need on the final?" calculations
 - Course progress analysis and predictions
 
-**� Assignment Management** 
+**📄 Document Management** 
 - Access all previous submissions and feedback
-- Download and review submitted files (PDF, DOCX, etc.)
-- Smart assignment search and processing
+- Extract text from 94+ document types via LlamaParse
+- Smart file search and content processing
+- OCR for images, transcription for audio files
 
 **🎓 Quiz & Study Tools**
 - Complete quiz review after submission
@@ -46,35 +47,16 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 ### **Prerequisites**
 - Node.js 18+ 
 - Canvas API access token
+- LlamaParse API key (for document processing)
 - Claude Desktop application
 
-### **Installation**
-
+### **1. Installation**
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
-cd notioc-canvas-mcp-server
-
-# 2. Install dependencies
+git clone https://github.com/notioc/canvas-mcp-server.git
+cd canvas-mcp-server
 npm install
-
-# 3. Configure your Canvas credentials
-cp .env.example .env
-# Edit .env with your Canvas URL and API token
-
-# 4. Build the project
 npm run build
-
-# 5. Configure Claude Desktop (see setup guide)
 ```
-
-## ⚙️ **Configuration**
-
-### **1. Get Your Canvas API Token**
-1. Log into Canvas → Account → Settings
-2. Scroll to "Approved Integrations" → "+ New Access Token"  
-3. Name: "Notioc MCP Server", set expiration date
-4. Copy the generated token
 
 ### **2. Environment Setup**
 Create `.env` file:
@@ -82,21 +64,22 @@ Create `.env` file:
 CANVAS_BASE_URL=https://your-school.instructure.com
 CANVAS_ACCESS_TOKEN=your_api_token_here
 
-# Optional: LlamaParse for advanced document processing
+# LlamaParse for document processing (94+ file types)
 LLAMA_CLOUD_API_KEY=your_llamaparse_api_key_here
-ENABLE_LLAMAPARSE=false
-LLAMA_PARSE_ALLOW_UPLOAD=false
+ENABLE_LLAMAPARSE=true
+LLAMA_PARSE_ALLOW_UPLOAD=true
 
 NODE_ENV=production
 ```
 
-**Optional LlamaParse Configuration:**
-- `LLAMA_CLOUD_API_KEY`: API key from LlamaIndex for processing 60+ document types
-- `ENABLE_LLAMAPARSE=true`: Enable advanced document extraction (requires API key)
-- `LLAMA_PARSE_ALLOW_UPLOAD=true`: Allow uploading files to LlamaParse (privacy consideration)
-- `LLAMA_ONLY=true`: Use only LlamaParse (disable local PDF parsing)
+**LlamaParse Configuration (Advanced Document Processing):**
+- `LLAMA_CLOUD_API_KEY`: API key from LlamaIndex Cloud for processing 94+ document types
+- `ENABLE_LLAMAPARSE=true`: Enable advanced document extraction
+- `LLAMA_PARSE_ALLOW_UPLOAD=true`: Allow uploading files to LlamaParse for processing
+- `LLAMA_PARSE_TIMEOUT_MS=300000`: Timeout for complex documents (5 minutes)
+- `LLAMA_PARSE_MAX_MB=50`: Maximum file size for processing
 
-> **📄 Document Support**: With LlamaParse enabled, the server can process PDFs, Word docs, Excel sheets, PowerPoints, images (OCR), HTML, and 50+ other formats.
+> **📄 Document Support**: With LlamaParse enabled, the server can process PDFs, Word docs, Excel sheets, PowerPoints, images (OCR), audio files (transcription), and 80+ other formats with high accuracy.
 
 ### **3. Claude Desktop Integration**
 Add to Claude Desktop settings (`claude_desktop_config.json`):

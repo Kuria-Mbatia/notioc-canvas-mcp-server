@@ -64,7 +64,9 @@ function createError(code: LlamaParseError['code'], message: string, details?: a
 }
 
 function getFileExtension(filename: string): string {
-  const ext = filename.toLowerCase().split('.').pop();
+  // Remove query parameters and URL fragments first
+  const cleanFilename = filename.split('?')[0].split('#')[0];
+  const ext = cleanFilename.toLowerCase().split('.').pop();
   return ext || '';
 }
 

@@ -21,29 +21,6 @@ const LLAMA_CONFIG = {
   allowUpload: process.env.LLAMA_PARSE_ALLOW_UPLOAD === 'true'
 };
 
-// PDF parsing function - use require to avoid debug mode issues
-let pdfParse: any = null;
-let pdfLoadAttempted = false;
-
-async function initializePdfParse() {
-  if (pdfParse) return pdfParse;
-  
-  try {
-    // Suppress the loading message to keep progress bar clean
-    // console.log('🔍 Loading pdf-parse via require...');
-    
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    pdfParse = require('pdf-parse');
-    
-    // Suppress the success message to keep progress bar clean  
-    // console.log('📄 PDF parsing enabled');
-    return pdfParse;
-  } catch (error) {
-    return null;
-  }
-}
-
 // Calculate a basic similarity score
 function calculateSimilarity(searchTerm: string, text: string): number {
   if (!searchTerm || !text) return 0;
@@ -298,139 +275,92 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
 // Helper function to handle different file content types
 async function handleFileContent(response: Response, contentType: string | null, fileName?: string): Promise<string> {
   // Get filename from response URL if not provided
-  const detectedFileName = fileName || response.url.split('/').pop() || 'unknown';
+  const detectedFileName = fileName || decodeURIComponent(response.url.split('/').pop() || 'unknown');
   
-  // Handle PDFs with LlamaParse integration
-  if (contentType?.includes('application/pdf')) {
-    const buffer = await response.arrayBuffer();
-    
-    // Try LlamaParse first if enabled
-    if (LLAMA_CONFIG.enabled && LLAMA_CONFIG.apiKey) {
-      try {
-        logger.debug(`[Files] Attempting LlamaParse for PDF: ${detectedFileName}`);
-        
-        const result = await parseWithLlama(
-          {
-            buffer: Buffer.from(buffer),
-            filename: detectedFileName,
-            mime: contentType
-          },
-          {
-            apiKey: LLAMA_CONFIG.apiKey,
-            allowUpload: LLAMA_CONFIG.allowUpload,
-            resultFormat: LLAMA_CONFIG.resultFormat as 'markdown' | 'text',
-            timeoutMs: LLAMA_CONFIG.timeoutMs,
-            pollIntervalMs: LLAMA_CONFIG.pollIntervalMs,
-            maxBytes: LLAMA_CONFIG.maxMB * 1024 * 1024
-          }
-        );
-        
-        logger.info(`[Files] LlamaParse successful for PDF: ${detectedFileName} (${result.meta?.processingTime}ms)`);
-        return result.content;
-        
-      } catch (error) {
-        const llamaError = error as LlamaParseError;
-        logger.warn(`[Files] LlamaParse failed for PDF: ${detectedFileName} - ${llamaError.message}`);
-        
-        // If LLAMA_ONLY is true, don't try fallback
-        if (LLAMA_CONFIG.llamaOnly) {
-          return `[LlamaParse Error: ${llamaError.message}]\n\nDownload URL: ${response.url}`;
-        }
-        
-        // Otherwise, fall back to local PDF parsing
-        logger.debug(`[Files] Falling back to local PDF parsing for: ${detectedFileName}`);
-      }
-    }
-    
-    // Fallback to local PDF parsing (existing logic)
-    const pdfParser = await initializePdfParse();
-    if (pdfParser) {
-      try {
-        const data = await pdfParser(buffer);
-        logger.debug(`[Files] Local PDF parsing successful: ${detectedFileName}`);
-        return data.text;
-      } catch (err) {
-        logger.warn(`[Files] Local PDF parsing failed: ${detectedFileName} - ${err}`);
-        return `[Error extracting text from PDF: ${err}]\n\nDownload URL: ${response.url}`;
-      }
-    } else {
-      return `[PDF parsing is not available]\n\nDownload URL: ${response.url}`;
-    }
-  } 
-  
-  // Handle documents and presentations with LlamaParse
-  else if (shouldUseLlamaParse(detectedFileName, contentType)) {
+  // Route all supported files through LlamaParse
+  if (shouldUseLlamaParse(detectedFileName, contentType)) {
     return await processWithLlamaParse(response, detectedFileName, contentType);
   }
   
-  // Handle text-based files (unchanged)
-  else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('text/html') || contentType?.includes('application/json')) {
+  // Handle simple text-based files directly (no parsing needed)
+  else if (contentType?.includes('text/plain') || contentType?.includes('text/csv') || contentType?.includes('application/json')) {
     return await response.text();
   } 
+  
+  // Handle HTML files with basic processing
+  else if (contentType?.includes('text/html')) {
+    const html = await response.text();
+    // Basic HTML cleanup - remove tags and extract text
+    return html.replace(/<[^>]*>/g, ' ')
+               .replace(/\s+/g, ' ')
+               .trim();
+  }
   
   // Handle unsupported file types
   else {
     const fileType = contentType || 'unknown type';
     const supportedByLlama = isFileSupported(detectedFileName);
     
-    if (supportedByLlama && LLAMA_CONFIG.enabled) {
-      return `[File type ${fileType} is supported by LlamaParse but not enabled. Set ENABLE_LLAMAPARSE=true to process this file.]\n\nDownload URL: ${response.url}`;
+    if (supportedByLlama) {
+      return `[LlamaParse required but not enabled. Enable with ENABLE_LLAMAPARSE=true and LLAMA_PARSE_ALLOW_UPLOAD=true]\n\nFile: ${detectedFileName}\nType: ${fileType}\nDownload: ${response.url}`;
     } else {
-      return `[Binary file of type: ${fileType}. Content extraction not yet supported for this file type.]\n\nDownload URL: ${response.url}`;
+      return `[File type not supported: ${fileType}]\n\nFile: ${detectedFileName}\nDownload: ${response.url}`;
     }
   }
 }
 
 // Helper function to determine if a file should use LlamaParse
 function shouldUseLlamaParse(fileName: string, contentType: string | null): boolean {
-  // Skip if LlamaParse is not enabled
-  if (!LLAMA_CONFIG.enabled || !LLAMA_CONFIG.apiKey) {
-    return false;
-  }
-
-  // Check by file extension first (most reliable)
-  if (isFileSupported(fileName)) {
+  // Always use LlamaParse for supported files when enabled
+  if (LLAMA_CONFIG.enabled && LLAMA_CONFIG.apiKey && isFileSupported(fileName)) {
     return true;
   }
 
-  // Check by content-type as fallback
-  const docTypes = [
-    // Microsoft Office
-    'application/vnd.openxmlformats-officedocument', // .docx, .pptx, .xlsx
-    'application/vnd.ms-', // .doc, .ppt, .xls
-    'application/msword',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.ms-excel',
-    
-    // Other document formats
-    'application/rtf',
-    'application/epub+zip',
-    'application/xml',
-    'text/xml',
-    
-    // Image formats (for OCR)
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/bmp',
-    'image/tiff',
-    'image/webp',
-    'image/svg+xml',
-    
-    // Audio formats
-    'audio/mpeg',
-    'audio/mp4',
-    'audio/wav',
-    'audio/webm'
-  ];
+  // Check by content-type as fallback for files without clear extensions
+  if (LLAMA_CONFIG.enabled && LLAMA_CONFIG.apiKey && contentType) {
+    const supportedTypes = [
+      // PDFs
+      'application/pdf',
+      
+      // Microsoft Office
+      'application/vnd.openxmlformats-officedocument',
+      'application/vnd.ms-',
+      'application/msword',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.ms-excel',
+      
+      // Other document formats
+      'application/rtf',
+      'application/epub+zip',
+      'application/xml',
+      'text/xml',
+      
+      // Image formats (for OCR)
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/bmp',
+      'image/tiff',
+      'image/webp',
+      'image/svg+xml',
+      
+      // Audio formats
+      'audio/mpeg',
+      'audio/mp4',
+      'audio/wav',
+      'audio/webm'
+    ];
 
-  return contentType ? docTypes.some(type => contentType.includes(type)) : false;
+    return supportedTypes.some(type => contentType.includes(type));
+  }
+
+  return false;
 }
 
 // Helper function to process files with LlamaParse
 async function processWithLlamaParse(response: Response, fileName: string, contentType: string | null): Promise<string> {
   try {
-    logger.debug(`[Files] Attempting LlamaParse for document: ${fileName}`);
+    logger.debug(`[Files] Processing with LlamaParse: ${fileName}`);
     
     const buffer = await response.arrayBuffer();
     
@@ -450,15 +380,15 @@ async function processWithLlamaParse(response: Response, fileName: string, conte
       }
     );
     
-    logger.info(`[Files] LlamaParse successful for document: ${fileName} (${result.meta?.processingTime}ms)`);
+    logger.info(`[Files] LlamaParse successful: ${fileName} (${result.meta?.processingTime}ms)`);
     return result.content;
     
   } catch (error) {
     const llamaError = error as LlamaParseError;
-    logger.warn(`[Files] LlamaParse failed for document: ${fileName} - ${llamaError.message}`);
+    logger.warn(`[Files] LlamaParse failed: ${fileName} - ${llamaError.message}`);
     
-    // For non-PDF files, we don't have a local fallback, so return error with download link
-    return `[LlamaParse Error: ${llamaError.message}]\n\nThis file type requires LlamaParse but processing failed. Please download manually:\n${response.url}`;
+    // Return structured error with download link
+    return `[LlamaParse Error: ${llamaError.message}]\n\nFile: ${fileName}\nDownload: ${response.url}`;
   }
 }
 
