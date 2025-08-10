@@ -5,6 +5,14 @@
 
 import { smartSearch, extractCourseContent, getExtractionStats, clearCourseCache } from '../lib/content-extraction.js';
 import { logger } from '../lib/logger.js';
+import { 
+  classifyIntent, 
+  rerankCandidates, 
+  IntentClassification, 
+  RerankCandidate, 
+  RerankResult,
+  DEFAULT_SMALL_MODEL_CONFIG 
+} from '../lib/small-model.js';
 
 export interface SmartSearchParams {
   canvasBaseUrl: string;
@@ -14,6 +22,9 @@ export interface SmartSearchParams {
   query: string;
   forceRefresh?: boolean;
   includeContent?: boolean;
+  maxResults?: number; // NEW: limit number of results (default 5)
+  returnMode?: 'refs' | 'answer' | 'full'; // NEW: control output verbosity (default 'refs')
+  useSmallModel?: boolean; // NEW: enable intent classification and reranking (default true)
 }
 
 export interface SmartSearchResult {
@@ -52,34 +63,109 @@ export interface SmartSearchResult {
     extractionUsed: boolean;
     discoveryMethod: string;
     apiRestrictions?: string;
+    truncated?: boolean; // NEW: indicates if results were capped
+    mode?: string; // NEW: indicates return mode used
   };
   suggestions?: string[];
   error?: string;
 }
 
+// NEW: Compact citation format for 'refs' mode
+export interface CompactCitation {
+  id: string;
+  type: 'file' | 'page' | 'link';
+  title: string;
+  source: string;
+  relevance: number;
+  canProcess?: boolean; // only for files
+}
+
+export interface CompactSearchResult {
+  success: boolean;
+  query: string;
+  courseInfo: {
+    courseId?: string;
+    courseName?: string;
+  };
+  citations: CompactCitation[];
+  metadata: {
+    totalResults: number;
+    searchTime: number;
+    extractionUsed: boolean;
+    discoveryMethod: string;
+    apiRestrictions?: string;
+    truncated: boolean;
+    mode: string;
+    intent?: IntentClassification; // NEW: detected intent
+    reranked?: boolean; // NEW: whether results were reranked
+  };
+  suggestions?: string[];
+  error?: string;
+}
+
+// NEW: Text budget helper to enforce token limits
+function enforceTextBudget(text: string, maxChars: number = 2000): string {
+  if (text.length <= maxChars) return text;
+  
+  const truncated = text.slice(0, maxChars - 10);
+  const lastSpace = truncated.lastIndexOf(' ');
+  const cutPoint = lastSpace > maxChars * 0.8 ? lastSpace : truncated.length;
+  
+  return truncated.slice(0, cutPoint) + '...[truncated]';
+}
+
 /**
  * Smart search across course content with automatic discovery
  */
-export async function performSmartSearch(params: SmartSearchParams): Promise<SmartSearchResult> {
+export async function performSmartSearch(params: SmartSearchParams): Promise<SmartSearchResult | CompactSearchResult> {
   const startTime = Date.now();
   
+  // NEW: Extract efficiency parameters with defaults
+  const maxResults = params.maxResults ?? 5;
+  const returnMode = params.returnMode ?? 'refs';
+  const useSmallModel = params.useSmallModel ?? DEFAULT_SMALL_MODEL_CONFIG.enabled;
+  
+  // Declare intent variable in the outer scope so it's available everywhere
+  let intent: IntentClassification | undefined;
+  
   try {
-    logger.info(`[Smart Search Tool] Searching for "${params.query}" in course ${params.courseId || 'unknown'}`);
+    logger.info(`[Smart Search Tool] Searching for "${params.query}" in course ${params.courseId || 'unknown'} (mode: ${returnMode}, maxResults: ${maxResults}, smallModel: ${useSmallModel})`);
+    
+    // Step 1: Intent classification (if using small model)
+    if (useSmallModel) {
+      try {
+        intent = await classifyIntent(params.query, params.courseId);
+        logger.debug(`[Smart Search Tool] Intent: ${Object.entries(intent).filter(([k, v]) => k !== 'confidence' && k !== 'reasoning' && v).map(([k]) => k).join(', ')}`);
+      } catch (error) {
+        logger.warn(`[Smart Search Tool] Intent classification failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     
     if (!params.courseId) {
-      return {
+      const errorResult = {
         success: false,
         query: params.query,
         courseInfo: { courseName: params.courseName },
-        results: { files: [], pages: [], links: [] },
         metadata: {
           totalResults: 0,
           searchTime: Date.now() - startTime,
           extractionUsed: false,
-          discoveryMethod: 'none'
+          discoveryMethod: 'none',
+          truncated: false,
+          mode: returnMode,
+          intent: intent,
+          reranked: false
         },
         error: 'Course ID is required for smart search'
       };
+      
+      return returnMode === 'refs' ? {
+        ...errorResult,
+        citations: []
+      } as CompactSearchResult : {
+        ...errorResult,
+        results: { files: [], pages: [], links: [] }
+      } as SmartSearchResult;
     }
     
     // Perform smart search using content extraction engine
@@ -107,9 +193,152 @@ export async function performSmartSearch(params: SmartSearchParams): Promise<Sma
       canProcess: canProcessFile(file.fileName)
     }));
     
-    // Generate suggestions based on results
-    const suggestions = generateSearchSuggestions(params.query, searchResult);
+    // Step 2: Smart reranking (if using small model and have enough results)
+    let rerankedFiles = enhancedFiles;
+    let rerankedPages = searchResult.pages;
+    let rerankedLinks = searchResult.links;
+    let wasReranked = false;
     
+    if (useSmallModel && intent && (enhancedFiles.length + searchResult.pages.length + searchResult.links.length) > maxResults) {
+      try {
+        // Create candidates for reranking
+        const candidates: RerankCandidate[] = [
+          ...enhancedFiles.map(f => ({
+            id: `file_${f.fileId}`,
+            title: f.fileName,
+            source: f.source,
+            type: 'file' as const,
+            snippet: undefined // Could add file content preview in future
+          })),
+          ...searchResult.pages.map(p => ({
+            id: `page_${p.path}`,
+            title: p.name,
+            source: p.path,
+            type: 'page' as const
+          })),
+          ...searchResult.links.map(l => ({
+            id: `link_${Buffer.from(l.url).toString('base64').slice(0, 8)}`,
+            title: l.title,
+            source: l.source,
+            type: 'link' as const
+          }))
+        ];
+        
+        // Rerank all candidates together
+        const rerankResults = await rerankCandidates(params.query, candidates, maxResults);
+        
+        if (rerankResults.length > 0) {
+          // Apply rerank results
+          rerankedFiles = [];
+          rerankedPages = [];
+          rerankedLinks = [];
+          
+          for (const result of rerankResults) {
+            if (result.id.startsWith('file_')) {
+              const fileId = result.id.replace('file_', '');
+              const file = enhancedFiles.find(f => f.fileId === fileId);
+              if (file) {
+                rerankedFiles.push({ ...file, relevance: result.score });
+              }
+            } else if (result.id.startsWith('page_')) {
+              const path = result.id.replace('page_', '');
+              const page = searchResult.pages.find(p => p.path === path);
+              if (page) {
+                rerankedPages.push({ ...page, relevance: result.score });
+              }
+            } else if (result.id.startsWith('link_')) {
+              const linkHash = result.id.replace('link_', '');
+              const link = searchResult.links.find(l => 
+                Buffer.from(l.url).toString('base64').slice(0, 8) === linkHash
+              );
+              if (link) {
+                rerankedLinks.push({ ...link, relevance: result.score });
+              }
+            }
+          }
+          
+          wasReranked = true;
+          logger.info(`[Smart Search Tool] Reranked ${candidates.length} candidates to ${rerankResults.length} top results`);
+        }
+      } catch (error) {
+        logger.warn(`[Smart Search Tool] Reranking failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    
+    // NEW: Apply maxResults limit after reranking (or use original if no reranking)
+    const limitedFiles = rerankedFiles.slice(0, maxResults);
+    const limitedPages = rerankedPages.slice(0, maxResults);
+    const limitedLinks = rerankedLinks.slice(0, maxResults);
+    
+    const originalTotal = searchResult.totalResults;
+    const limitedTotal = limitedFiles.length + limitedPages.length + limitedLinks.length;
+    const wasTruncated = limitedTotal < originalTotal;
+    
+    // Generate suggestions based on results
+    const suggestions = generateSearchSuggestions(params.query, {
+      ...searchResult,
+      files: limitedFiles,
+      pages: limitedPages,
+      links: limitedLinks,
+      totalResults: limitedTotal
+    });
+    
+    const baseMetadata = {
+      totalResults: limitedTotal,
+      searchTime: searchResult.searchTime,
+      extractionUsed: searchResult.extractionUsed,
+      discoveryMethod: stats.hasCache ? 'cached' : 'discovery',
+      apiRestrictions: stats.apiStatus === 'restricted' ? 'Some APIs restricted, using smart discovery' : undefined,
+      truncated: wasTruncated,
+              mode: returnMode,
+        intent: intent,
+        reranked: wasReranked
+    };
+    
+    // NEW: Return compact format for 'refs' mode
+    if (returnMode === 'refs') {
+      const citations: CompactCitation[] = [
+        ...limitedFiles.map(file => ({
+          id: `file_${file.fileId}`,
+          type: 'file' as const,
+          title: file.fileName,
+          source: file.source,
+          relevance: file.relevance,
+          canProcess: file.canProcess
+        })),
+        ...limitedPages.map(page => ({
+          id: `page_${page.path}`,
+          type: 'page' as const,
+          title: page.name,
+          source: page.path,
+          relevance: page.relevance
+        })),
+        ...limitedLinks.map(link => ({
+          id: `link_${Buffer.from(link.url).toString('base64').slice(0, 8)}`,
+          type: 'link' as const,
+          title: link.title,
+          source: link.source,
+          relevance: link.relevance
+        }))
+      ];
+      
+      const result: CompactSearchResult = {
+        success: true,
+        query: params.query,
+        courseInfo: {
+          courseId: params.courseId,
+          courseName: params.courseName
+        },
+        citations: citations.sort((a, b) => b.relevance - a.relevance),
+        metadata: baseMetadata,
+        suggestions: suggestions.length > 0 ? suggestions.map(s => enforceTextBudget(s, 200)) : undefined
+      };
+      
+      logger.info(`[Smart Search Tool] Found ${result.citations.length} citations for "${params.query}" in ${result.metadata.searchTime}ms (compact mode)`);
+      return result;
+    }
+    
+    // Return full format for 'full' mode
     const result: SmartSearchResult = {
       success: true,
       query: params.query,
@@ -118,21 +347,15 @@ export async function performSmartSearch(params: SmartSearchParams): Promise<Sma
         courseName: params.courseName
       },
       results: {
-        files: enhancedFiles,
-        pages: searchResult.pages,
-        links: searchResult.links
+        files: limitedFiles,
+        pages: limitedPages,
+        links: limitedLinks
       },
-      metadata: {
-        totalResults: searchResult.totalResults,
-        searchTime: searchResult.searchTime,
-        extractionUsed: searchResult.extractionUsed,
-        discoveryMethod: stats.hasCache ? 'cached' : 'discovery',
-        apiRestrictions: stats.apiStatus === 'restricted' ? 'Some APIs restricted, using smart discovery' : undefined
-      },
-      suggestions: suggestions.length > 0 ? suggestions : undefined
+      metadata: baseMetadata,
+      suggestions: suggestions.length > 0 ? suggestions.map(s => enforceTextBudget(s, 200)) : undefined
     };
     
-    logger.info(`[Smart Search Tool] Found ${result.metadata.totalResults} results for "${params.query}" in ${result.metadata.searchTime}ms`);
+    logger.info(`[Smart Search Tool] Found ${result.metadata.totalResults} results for "${params.query}" in ${result.metadata.searchTime}ms (full mode)`);
     
     return result;
     
@@ -140,22 +363,33 @@ export async function performSmartSearch(params: SmartSearchParams): Promise<Sma
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error(`[Smart Search Tool] Search failed: ${errorMsg}`);
     
-    return {
+    const errorResult = {
       success: false,
       query: params.query,
       courseInfo: {
         courseId: params.courseId,
         courseName: params.courseName
       },
-      results: { files: [], pages: [], links: [] },
       metadata: {
         totalResults: 0,
         searchTime: Date.now() - startTime,
         extractionUsed: false,
-        discoveryMethod: 'failed'
+        discoveryMethod: 'failed',
+        truncated: false,
+                  mode: returnMode,
+          intent: intent,
+          reranked: false
       },
-      error: `Search failed: ${errorMsg}`
+      error: `Search failed: ${enforceTextBudget(errorMsg, 500)}`
     };
+    
+    return returnMode === 'refs' ? {
+      ...errorResult,
+      citations: []
+    } as CompactSearchResult : {
+      ...errorResult,
+      results: { files: [], pages: [], links: [] }
+    } as SmartSearchResult;
   }
 }
 

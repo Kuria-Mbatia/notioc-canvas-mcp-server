@@ -8,6 +8,15 @@ import Fuse from 'fuse.js';
 import { createRequire } from 'module';
 import { logger } from '../lib/logger.js';
 import { parseWithLlama, isFileSupported, LlamaParseError } from '../lib/llamaparse.js';
+import { 
+  generateCacheKey, 
+  getCachedFileContent, 
+  setCachedFileContent, 
+  shouldRevalidateCache,
+  compressToPreview,
+  DEFAULT_FILE_CACHE_CONFIG,
+  FileCacheConfig 
+} from '../lib/file-cache.js';
 
 // LlamaParse configuration (loaded from environment)
 const LLAMA_CONFIG = {
@@ -67,6 +76,9 @@ export interface FileContentParams {
   courseName?: string;
   fileId?: string;
   fileName?: string;
+  mode?: 'preview' | 'full'; // NEW: preview mode for token efficiency
+  maxChars?: number; // NEW: max chars for preview mode
+  forceRefresh?: boolean; // NEW: bypass cache
 }
 
 // Search for files in a Canvas course
@@ -187,12 +199,28 @@ export async function searchFiles(params: FileSearchParams): Promise<FileInfo[]>
   }
 }
 
-// Get content of a specific file
-export async function getFileContent(params: FileContentParams): Promise<{ name: string; content: string, url: string }> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, fileId, fileName } = params;
+// Get content of a specific file with caching and preview mode
+export async function getFileContent(params: FileContentParams): Promise<{ 
+  name: string; 
+  content: string; 
+  url: string;
+  metadata: {
+    mode: 'preview' | 'full';
+    truncated: boolean;
+    cached: boolean;
+    processingTime?: number;
+    originalSize?: number;
+  };
+}> {
+  let { canvasBaseUrl, accessToken, courseId, courseName, fileId, fileName, mode = 'preview', maxChars, forceRefresh = false } = params;
 
   if (!fileId && !fileName) {
     throw new Error('Either fileId or fileName must be provided.');
+  }
+  
+  // Set default maxChars based on mode
+  if (!maxChars) {
+    maxChars = mode === 'preview' ? DEFAULT_FILE_CACHE_CONFIG.previewMaxChars : undefined;
   }
 
   try {
@@ -255,12 +283,82 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
     }
 
     const contentType = fileResponse.headers.get('content-type');
-    const content = await handleFileContent(fileResponse, contentType, fileToFetch.name);
+    const etag = fileResponse.headers.get('etag');
+    const contentLength = parseInt(fileResponse.headers.get('content-length') || '0') || undefined;
+    
+    // Generate cache key
+    const cacheKey = generateCacheKey(
+      fileToFetch.id, 
+      etag || undefined, 
+      contentLength, 
+      LLAMA_CONFIG.resultFormat
+    );
+    
+    // Check cache first (unless forced refresh)
+    let cached = null;
+    let shouldRevalidate = false;
+    
+    if (!forceRefresh) {
+      cached = getCachedFileContent(cacheKey);
+      if (cached) {
+        shouldRevalidate = shouldRevalidateCache(cached);
+        
+        // If cache is valid and we don't need revalidation, use cached content
+        if (!shouldRevalidate) {
+          const content = mode === 'preview' ? cached.preview : cached.content;
+          
+          logger.info(`[Files] Cache hit: ${fileToFetch.name} (mode: ${mode})`);
+          
+          return {
+            name: fileToFetch.name,
+            content: mode === 'preview' && maxChars ? 
+              compressToPreview(content, maxChars) : content,
+            url: fileToFetch.url,
+            metadata: {
+              mode,
+              truncated: mode === 'preview' && content.length < cached.content.length,
+              cached: true,
+              processingTime: cached.processingTime,
+              originalSize: cached.content.length
+            }
+          };
+        }
+      }
+    }
+    
+    // Process file content (cache miss or needs revalidation)
+    const startTime = Date.now();
+    const { content: fullContent, wasCached } = await handleFileContentWithCache(
+      fileResponse, 
+      contentType, 
+      fileToFetch.name, 
+      cacheKey,
+      { etag: etag || undefined, contentLength, resultFormat: LLAMA_CONFIG.resultFormat }
+    );
+    const processingTime = Date.now() - startTime;
+    
+    // Return appropriate content based on mode
+    let finalContent = fullContent;
+    let truncated = false;
+    
+    if (mode === 'preview') {
+      finalContent = maxChars ? 
+        compressToPreview(fullContent, maxChars) : 
+        compressToPreview(fullContent);
+      truncated = finalContent.length < fullContent.length;
+    }
 
     return { 
       name: fileToFetch.name, 
-      content,
-      url: fileToFetch.url // Include the URL for reference
+      content: finalContent,
+      url: fileToFetch.url,
+      metadata: {
+        mode,
+        truncated,
+        cached: wasCached,
+        processingTime: wasCached ? undefined : processingTime,
+        originalSize: fullContent.length
+      }
     };
 
   } catch (error) {
@@ -270,6 +368,37 @@ export async function getFileContent(params: FileContentParams): Promise<{ name:
       throw new Error('Failed to get content: Unknown error');
     }
   }
+}
+
+// Helper function to handle different file content types with caching
+async function handleFileContentWithCache(
+  response: Response, 
+  contentType: string | null, 
+  fileName: string,
+  cacheKey: string,
+  metadata: { etag?: string; contentLength?: number; resultFormat: string }
+): Promise<{ content: string; wasCached: boolean }> {
+  // Check if content was already cached during this request
+  const existingCache = getCachedFileContent(cacheKey);
+  if (existingCache) {
+    logger.debug(`[Files] Using existing cache during revalidation: ${fileName}`);
+    return { content: existingCache.content, wasCached: true };
+  }
+  
+  // Process the file content
+  const startTime = Date.now();
+  const content = await handleFileContent(response, contentType, fileName);
+  const processingTime = Date.now() - startTime;
+  
+  // Cache the result
+  setCachedFileContent(cacheKey, content, {
+    etag: metadata.etag,
+    contentLength: metadata.contentLength,
+    processingTime,
+    resultFormat: metadata.resultFormat
+  });
+  
+  return { content, wasCached: false };
 }
 
 // Helper function to handle different file content types
@@ -393,8 +522,29 @@ async function processWithLlamaParse(response: Response, fileName: string, conte
 }
 
 // Read a file directly by its Canvas file ID (without needing course context)
-export async function readFileById(params: { canvasBaseUrl: string; accessToken: string; fileId: string }): Promise<{ name: string; content: string; url: string }> {
-  const { canvasBaseUrl, accessToken, fileId } = params;
+export async function readFileById(params: { 
+  canvasBaseUrl: string; 
+  accessToken: string; 
+  fileId: string;
+  mode?: 'preview' | 'full';
+  maxChars?: number;
+  forceRefresh?: boolean;
+}): Promise<{ 
+  name: string; 
+  content: string; 
+  url: string;
+  metadata: {
+    mode: 'preview' | 'full';
+    truncated: boolean;
+    cached: boolean;
+    processingTime?: number;
+    originalSize?: number;
+  };
+}> {
+  const { canvasBaseUrl, accessToken, fileId, mode = 'preview', maxChars, forceRefresh = false } = params;
+  
+  // Set default maxChars based on mode
+  const effectiveMaxChars = maxChars || (mode === 'preview' ? DEFAULT_FILE_CACHE_CONFIG.previewMaxChars : undefined);
 
   try {
     // First, get file metadata
@@ -463,14 +613,77 @@ export async function readFileById(params: { canvasBaseUrl: string; accessToken:
     }
 
     const contentType = fileResponse.headers.get('content-type');
-    logger.info(`File content type: ${contentType}, size: ${fileResponse.headers.get('content-length')}`);
+    const etag = fileResponse.headers.get('etag');
+    const contentLength = parseInt(fileResponse.headers.get('content-length') || '0') || undefined;
     
-    const content = await handleFileContent(fileResponse, contentType);
+    logger.info(`File content type: ${contentType}, size: ${contentLength}, etag: ${etag}`);
+    
+    // Generate cache key
+    const cacheKey = generateCacheKey(
+      fileId, 
+      etag || undefined, 
+      contentLength, 
+      LLAMA_CONFIG.resultFormat
+    );
+    
+    // Check cache first (unless forced refresh)
+    if (!forceRefresh) {
+      const cached = getCachedFileContent(cacheKey);
+      if (cached && !shouldRevalidateCache(cached)) {
+        const content = mode === 'preview' ? cached.preview : cached.content;
+        const finalContent = mode === 'preview' && effectiveMaxChars ? 
+          compressToPreview(content, effectiveMaxChars) : content;
+        
+        logger.info(`[Files] Cache hit: ${fileInfo.display_name} (mode: ${mode})`);
+        
+        return {
+          name: fileInfo.display_name,
+          content: finalContent,
+          url: fileInfo.url,
+          metadata: {
+            mode,
+            truncated: mode === 'preview' && finalContent.length < cached.content.length,
+            cached: true,
+            processingTime: cached.processingTime,
+            originalSize: cached.content.length
+          }
+        };
+      }
+    }
+    
+    // Process file content (cache miss or needs revalidation)
+    const startTime = Date.now();
+    const { content: fullContent, wasCached } = await handleFileContentWithCache(
+      fileResponse, 
+      contentType, 
+      fileInfo.display_name, 
+      cacheKey,
+      { etag: etag || undefined, contentLength, resultFormat: LLAMA_CONFIG.resultFormat }
+    );
+    const processingTime = Date.now() - startTime;
+    
+    // Return appropriate content based on mode
+    let finalContent = fullContent;
+    let truncated = false;
+    
+    if (mode === 'preview') {
+      finalContent = effectiveMaxChars ? 
+        compressToPreview(fullContent, effectiveMaxChars) : 
+        compressToPreview(fullContent);
+      truncated = finalContent.length < fullContent.length;
+    }
 
     return { 
       name: fileInfo.display_name, 
-      content,
-      url: fileInfo.url
+      content: finalContent,
+      url: fileInfo.url,
+      metadata: {
+        mode,
+        truncated,
+        cached: wasCached,
+        processingTime: wasCached ? undefined : processingTime,
+        originalSize: fullContent.length
+      }
     };
   } catch (error) {
     logger.error(`Error in readFileById: ${error}`);
