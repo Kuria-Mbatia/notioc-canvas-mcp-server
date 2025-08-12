@@ -52,7 +52,7 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 
 ### **1. Installation**
 ```bash
-git clone https://github.com/notioc/canvas-mcp-server.git
+git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
 cd canvas-mcp-server
 npm install
 npm run build
