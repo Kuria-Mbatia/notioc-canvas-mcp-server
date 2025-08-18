@@ -1,9 +1,9 @@
 // MCP Tool: Canvas Course Structure and Navigation Intelligence
 // Provides syllabus parsing and module prerequisite analysis
 
-import { listCourses } from './courses.js';
-import { findBestMatch } from '../lib/search.js';
-import { fetchAllPaginated } from '../lib/pagination.js';
+import { listCourses } from "./courses.js";
+import { findBestMatch } from "../lib/search.js";
+import { fetchAllPaginated } from "../lib/pagination.js";
 
 export interface CourseModule {
   id: string;
@@ -97,47 +97,61 @@ export interface CourseNavigation {
 }
 
 // Get comprehensive course structure and module navigation
-export async function getCourseNavigation(params: CourseStructureParams): Promise<CourseNavigation> {
+export async function getCourseNavigation(
+  params: CourseStructureParams,
+): Promise<CourseNavigation> {
   const { canvasBaseUrl, accessToken, courseId, courseName } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   try {
     // Get course ID if needed
     let resolvedCourseId = courseId;
     let resolvedCourseName = courseName;
-    
+
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
         throw new Error(`Could not find a course matching "${courseName}".`);
       }
       resolvedCourseId = matchedCourse.id;
       resolvedCourseName = matchedCourse.name;
     } else if (courseId && !courseName) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const course = courses.find(c => c.id === courseId);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const course = courses.find((c) => c.id === courseId);
       resolvedCourseName = course?.name || courseId;
     }
 
     // Fetch modules with detailed information
     const apiPath = `/api/v1/courses/${resolvedCourseId}/modules`;
     const queryParams = {
-      include: ['items', 'content_details'],
-      per_page: '100'
+      include: ["items", "content_details"],
+      per_page: "100",
     };
 
     const url = new URL(`${canvasBaseUrl}${apiPath}`);
     Object.entries(queryParams).forEach(([key, value]) => {
       if (Array.isArray(value)) {
-        value.forEach(v => url.searchParams.append(`${key}[]`, String(v)));
+        value.forEach((v) => url.searchParams.append(`${key}[]`, String(v)));
       } else {
         url.searchParams.append(key, String(value));
       }
@@ -145,13 +159,15 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
     });
 
     if (!response.ok) {
-      throw new Error(`Canvas API error: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Canvas API error: ${response.status} ${response.statusText}`,
+      );
     }
 
     const modulesData = await response.json();
@@ -163,7 +179,9 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
       position: module.position,
       state: module.state,
       unlockAt: module.unlock_at,
-      prerequisiteModuleIds: module.prerequisite_module_ids?.map((id: number) => id.toString()) || [],
+      prerequisiteModuleIds:
+        module.prerequisite_module_ids?.map((id: number) => id.toString()) ||
+        [],
       completionRequirements: module.completion_requirements || [],
       items: (module.items || []).map((item: any) => ({
         id: item.id.toString(),
@@ -174,14 +192,14 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
         published: item.published,
         completionRequirement: item.completion_requirement,
         contentId: item.content_id?.toString(),
-        url: item.html_url
+        url: item.html_url,
       })),
-      published: module.published
+      published: module.published,
     }));
 
     // Build prerequisite map
     const prerequisiteMap = new Map<string, string[]>();
-    modules.forEach(module => {
+    modules.forEach((module) => {
       if (module.prerequisiteModuleIds.length > 0) {
         prerequisiteMap.set(module.id, module.prerequisiteModuleIds);
       }
@@ -190,19 +208,27 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
     // Calculate completion status
     const completionStatus = {
       totalModules: modules.length,
-      completedModules: modules.filter(m => m.state === 'completed').length,
+      completedModules: modules.filter((m) => m.state === "completed").length,
       totalItems: modules.reduce((total, m) => total + m.items.length, 0),
-      completedItems: modules.reduce((total, m) => 
-        total + m.items.filter(item => 
-          item.completionRequirement?.completed === true
-        ).length, 0
+      completedItems: modules.reduce(
+        (total, m) =>
+          total +
+          m.items.filter(
+            (item) => item.completionRequirement?.completed === true,
+          ).length,
+        0,
       ),
-      overallProgress: 0
+      overallProgress: 0,
     };
 
-    completionStatus.overallProgress = completionStatus.totalModules > 0 
-      ? Math.round((completionStatus.completedModules / completionStatus.totalModules) * 100)
-      : 0;
+    completionStatus.overallProgress =
+      completionStatus.totalModules > 0
+        ? Math.round(
+            (completionStatus.completedModules /
+              completionStatus.totalModules) *
+              100,
+          )
+        : 0;
 
     // Determine next steps
     const nextSteps: Array<{
@@ -212,37 +238,39 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
       blockedBy?: string[];
     }> = [];
 
-    modules.forEach(module => {
-      if (module.state !== 'completed') {
+    modules.forEach((module) => {
+      if (module.state !== "completed") {
         if (module.prerequisiteModuleIds.length === 0) {
           nextSteps.push({
             moduleId: module.id,
             moduleName: module.name,
-            reason: 'Available - no prerequisites'
+            reason: "Available - no prerequisites",
           });
         } else {
-          const incompletePrereqs = module.prerequisiteModuleIds.filter(prereqId => {
-            const prereqModule = modules.find(m => m.id === prereqId);
-            return prereqModule?.state !== 'completed';
-          });
+          const incompletePrereqs = module.prerequisiteModuleIds.filter(
+            (prereqId) => {
+              const prereqModule = modules.find((m) => m.id === prereqId);
+              return prereqModule?.state !== "completed";
+            },
+          );
 
           if (incompletePrereqs.length === 0) {
             nextSteps.push({
               moduleId: module.id,
               moduleName: module.name,
-              reason: 'Available - prerequisites met'
+              reason: "Available - prerequisites met",
             });
           } else {
-            const blockedByNames = incompletePrereqs.map(prereqId => {
-              const prereqModule = modules.find(m => m.id === prereqId);
+            const blockedByNames = incompletePrereqs.map((prereqId) => {
+              const prereqModule = modules.find((m) => m.id === prereqId);
               return prereqModule?.name || `Module ${prereqId}`;
             });
 
             nextSteps.push({
               moduleId: module.id,
               moduleName: module.name,
-              reason: 'Blocked by incomplete prerequisites',
-              blockedBy: blockedByNames
+              reason: "Blocked by incomplete prerequisites",
+              blockedBy: blockedByNames,
             });
           }
         }
@@ -255,59 +283,72 @@ export async function getCourseNavigation(params: CourseStructureParams): Promis
       modules,
       prerequisiteMap,
       completionStatus,
-      nextSteps: nextSteps.slice(0, 5) // Limit to top 5 next steps
+      nextSteps: nextSteps.slice(0, 5), // Limit to top 5 next steps
     };
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get course navigation: ${error.message}`);
     } else {
-      throw new Error('Failed to get course navigation: Unknown error');
+      throw new Error("Failed to get course navigation: Unknown error");
     }
   }
 }
 
 // Get course syllabus from multiple sources
-export async function getCourseSyllabus(params: CourseStructureParams): Promise<CourseSyllabus> {
+export async function getCourseSyllabus(
+  params: CourseStructureParams,
+): Promise<CourseSyllabus> {
   const { canvasBaseUrl, accessToken, courseId, courseName } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   try {
     // Get course ID if needed
     let resolvedCourseId = courseId;
     let resolvedCourseName = courseName;
-    
+
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
         throw new Error(`Could not find a course matching "${courseName}".`);
       }
       resolvedCourseId = matchedCourse.id;
       resolvedCourseName = matchedCourse.name;
     } else if (courseId && !courseName) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const course = courses.find(c => c.id === courseId);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const course = courses.find((c) => c.id === courseId);
       resolvedCourseName = course?.name || courseId;
     }
 
     // Try the assignments/syllabus endpoint first (more reliable)
     let syllabusBody: string | undefined;
-    
+
     try {
       const syllabusUrl = `${canvasBaseUrl}/api/v1/courses/${resolvedCourseId}/assignments/syllabus`;
       const syllabusResponse = await fetch(syllabusUrl, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (syllabusResponse.ok) {
@@ -325,13 +366,15 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
       const courseUrl = `${canvasBaseUrl}/api/v1/courses/${resolvedCourseId}?include[]=syllabus_body`;
       const courseResponse = await fetch(courseUrl, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (!courseResponse.ok) {
-        throw new Error(`Failed to fetch course details: ${courseResponse.status}`);
+        throw new Error(
+          `Failed to fetch course details: ${courseResponse.status}`,
+        );
       }
 
       const courseData = await courseResponse.json();
@@ -347,8 +390,8 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
       syllabusFiles: [],
       extractedInfo: {
         contactInfo: [],
-        importantDates: []
-      }
+        importantDates: [],
+      },
     };
 
     // Try to get syllabus pages (may be disabled)
@@ -356,22 +399,23 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
       const pagesUrl = `${canvasBaseUrl}/api/v1/courses/${resolvedCourseId}/pages`;
       const pagesResponse = await fetch(pagesUrl, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (pagesResponse.ok) {
         const pages = await pagesResponse.json();
-        const syllabusPages = pages.filter((page: any) => 
-          page.title.toLowerCase().includes('syllabus') || 
-          page.url.toLowerCase().includes('syllabus')
+        const syllabusPages = pages.filter(
+          (page: any) =>
+            page.title.toLowerCase().includes("syllabus") ||
+            page.url.toLowerCase().includes("syllabus"),
         );
 
         syllabus.syllabusPages = syllabusPages.map((page: any) => ({
           title: page.title,
           url: page.url,
-          content: page.body
+          content: page.body,
         }));
       }
     } catch (error) {
@@ -383,9 +427,9 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
       const filesUrl = `${canvasBaseUrl}/api/v1/courses/${resolvedCourseId}/files?search_term=syllabus&per_page=50`;
       const filesResponse = await fetch(filesUrl, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (filesResponse.ok) {
@@ -394,7 +438,7 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
           name: file.display_name,
           url: file.url,
           size: file.size,
-          contentType: file.content_type || file['content-type'] || 'unknown'
+          contentType: file.content_type || file["content-type"] || "unknown",
         }));
       }
     } catch (error) {
@@ -407,21 +451,22 @@ export async function getCourseSyllabus(params: CourseStructureParams): Promise<
     }
 
     return syllabus;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get course syllabus: ${error.message}`);
     } else {
-      throw new Error('Failed to get course syllabus: Unknown error');
+      throw new Error("Failed to get course syllabus: Unknown error");
     }
   }
 }
 
 // Extract structured information from syllabus text
-function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInfo'] {
-  const info: CourseSyllabus['extractedInfo'] = {
+function extractSyllabusInfo(
+  syllabusText: string,
+): CourseSyllabus["extractedInfo"] {
+  const info: CourseSyllabus["extractedInfo"] = {
     contactInfo: [],
-    importantDates: []
+    importantDates: [],
   };
 
   if (!syllabusText) return info;
@@ -432,7 +477,7 @@ function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInf
   const gradingPatterns = [
     /grading\s*policy[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
     /grade\s*distribution[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
-    /assessment[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i
+    /assessment[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
   ];
 
   for (const pattern of gradingPatterns) {
@@ -446,7 +491,7 @@ function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInf
   // Extract attendance policy
   const attendancePatterns = [
     /attendance\s*policy[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
-    /attendance[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i
+    /attendance[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
   ];
 
   for (const pattern of attendancePatterns) {
@@ -461,7 +506,7 @@ function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInf
   const latePatterns = [
     /late\s*policy[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
     /late\s*submission[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
-    /late\s*work[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i
+    /late\s*work[:\s]*(.*?)(?:\n\n|\n[A-Z]|$)/i,
   ];
 
   for (const pattern of latePatterns) {
@@ -475,20 +520,22 @@ function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInf
   // Extract contact information
   const emailMatches = syllabusText.match(/[\w\.-]+@[\w\.-]+\.\w+/g);
   if (emailMatches) {
-    emailMatches.forEach(email => {
+    emailMatches.forEach((email) => {
       info.contactInfo!.push({
-        type: 'email',
-        info: email
+        type: "email",
+        info: email,
       });
     });
   }
 
-  const phoneMatches = syllabusText.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g);
+  const phoneMatches = syllabusText.match(
+    /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
+  );
   if (phoneMatches) {
-    phoneMatches.forEach(phone => {
+    phoneMatches.forEach((phone) => {
       info.contactInfo!.push({
-        type: 'phone',
-        info: phone
+        type: "phone",
+        info: phone,
       });
     });
   }
@@ -498,8 +545,8 @@ function extractSyllabusInfo(syllabusText: string): CourseSyllabus['extractedInf
   const officeHoursMatch = syllabusText.match(officeHoursPattern);
   if (officeHoursMatch) {
     info.contactInfo!.push({
-      type: 'office_hours',
-      info: officeHoursMatch[1].trim()
+      type: "office_hours",
+      info: officeHoursMatch[1].trim(),
     });
   }
 

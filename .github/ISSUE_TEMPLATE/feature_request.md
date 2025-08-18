@@ -1,9 +1,9 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: '[FEATURE] '
+title: "[FEATURE] "
 labels: enhancement
-assignees: ''
+assignees: ""
 ---
 
 **Is your feature request related to a problem? Please describe.**
@@ -19,6 +19,7 @@ A clear and concise description of any alternative solutions or features you've 
 Describe how this feature would be used and what benefit it would provide.
 
 **Canvas LMS context**
+
 - What Canvas feature/API would this integrate with?
 - Is this a common Canvas use case?
 - Would this benefit students, instructors, or both?

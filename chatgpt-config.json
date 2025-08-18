@@ -2,7 +2,9 @@
   "mcpServers": {
     "notioc": {
       "command": "node",
-      "args": ["/Users/kuriambatia/Desktop/Guaroot_Launch_Site/mcp-server/dist/src/server.js"],
+      "args": [
+        "/Users/kuriambatia/Desktop/Guaroot_Launch_Site/mcp-server/dist/src/server.js"
+      ],
       "env": {
         "CANVAS_BASE_URL": "https://psu.instructure.com",
         "CANVAS_ACCESS_TOKEN": "1050~eCt3AvhyTvkZUfn8TmHrA3WPmMfFPN8c8TccBYWfHf3VxQfuU7uK67kFxAhf8x9t"

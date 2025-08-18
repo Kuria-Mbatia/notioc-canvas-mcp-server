@@ -1,11 +1,11 @@
 // MCP Tool: Get Canvas Assignment Submission Comments & Feedback
 // Phase 1: Direct access to submission comments for Claude analysis
 
-import { callCanvasAPI } from '../lib/canvas-api.js';
-import { fetchAllPaginated } from '../lib/pagination.js';
-import { listCourses } from './courses.js';
-import { findBestMatch } from '../lib/search.js';
-import { logger } from '../lib/logger.js';
+import { callCanvasAPI } from "../lib/canvas-api.js";
+import { fetchAllPaginated } from "../lib/pagination.js";
+import { listCourses } from "./courses.js";
+import { findBestMatch } from "../lib/search.js";
+import { logger } from "../lib/logger.js";
 
 export interface GetSubmissionCommentsParams {
   canvasBaseUrl: string;
@@ -126,36 +126,46 @@ export interface DetailedSubmissionInfo {
 /**
  * Get submission comments for a specific assignment
  */
-export async function getSubmissionComments(params: GetSubmissionCommentsParams): Promise<SubmissionCommentInfo> {
-  let { 
-    canvasBaseUrl, 
-    accessToken, 
-    courseId, 
-    courseName, 
-    assignmentId, 
+export async function getSubmissionComments(
+  params: GetSubmissionCommentsParams,
+): Promise<SubmissionCommentInfo> {
+  let {
+    canvasBaseUrl,
+    accessToken,
+    courseId,
+    courseName,
+    assignmentId,
     assignmentName,
-    userId = 'self',
+    userId = "self",
     includeRubricAssessment = true,
-    includeSubmissionHistory = false
+    includeSubmissionHistory = false,
   } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   if (!assignmentId && !assignmentName) {
-    throw new Error('Either assignmentId or assignmentName must be provided');
+    throw new Error("Either assignmentId or assignmentName must be provided");
   }
 
   try {
     // Find course if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
         throw new Error(`Could not find course matching "${courseName}"`);
       }
@@ -168,41 +178,50 @@ export async function getSubmissionComments(params: GetSubmissionCommentsParams)
         canvasBaseUrl,
         accessToken,
         `/api/v1/courses/${courseId}/assignments`,
-        { per_page: '100' }
+        { per_page: "100" },
       );
-      
-      const matchedAssignment = findBestMatch(assignmentName, assignments, ['name']);
+
+      const matchedAssignment = findBestMatch(assignmentName, assignments, [
+        "name",
+      ]);
       if (!matchedAssignment) {
-        throw new Error(`Could not find assignment matching "${assignmentName}" in course`);
+        throw new Error(
+          `Could not find assignment matching "${assignmentName}" in course`,
+        );
       }
       assignmentId = String(matchedAssignment.id);
     }
 
-    logger.info(`Getting submission comments for assignment ${assignmentId} in course ${courseId}`);
+    logger.info(
+      `Getting submission comments for assignment ${assignmentId} in course ${courseId}`,
+    );
 
     // Build include parameters
-    const includeParams = ['submission_comments', 'user'];
+    const includeParams = ["submission_comments", "user"];
     if (includeRubricAssessment) {
-      includeParams.push('rubric_assessment');
+      includeParams.push("rubric_assessment");
     }
     if (includeSubmissionHistory) {
-      includeParams.push('submission_history');
+      includeParams.push("submission_history");
     }
 
     // Get the submission
-    const submissionEndpoint = userId === 'self' 
-      ? `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/self`
-      : `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+    const submissionEndpoint =
+      userId === "self"
+        ? `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/self`
+        : `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
 
     const response = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
-      apiPath: `${submissionEndpoint}?include[]=${includeParams.join('&include[]=')}`
+      method: "GET",
+      apiPath: `${submissionEndpoint}?include[]=${includeParams.join("&include[]=")}`,
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch submission: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch submission: ${response.status} ${response.statusText}`,
+      );
     }
 
     const submissionData = await response.json();
@@ -211,61 +230,73 @@ export async function getSubmissionComments(params: GetSubmissionCommentsParams)
     const assignmentResponse = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
-      apiPath: `/api/v1/courses/${courseId}/assignments/${assignmentId}`
+      method: "GET",
+      apiPath: `/api/v1/courses/${courseId}/assignments/${assignmentId}`,
     });
 
-    const assignmentData = assignmentResponse.ok ? await assignmentResponse.json() : null;
+    const assignmentData = assignmentResponse.ok
+      ? await assignmentResponse.json()
+      : null;
 
     // Process comments
-    const comments: CommentDetail[] = (submissionData.submission_comments || []).map((comment: any) => ({
+    const comments: CommentDetail[] = (
+      submissionData.submission_comments || []
+    ).map((comment: any) => ({
       id: String(comment.id),
       authorId: String(comment.author_id),
-      authorName: comment.author_name || 'Unknown',
-      comment: comment.comment || '',
+      authorName: comment.author_name || "Unknown",
+      comment: comment.comment || "",
       createdAt: comment.created_at,
       editedAt: comment.edited_at,
       attachments: (comment.attachments || []).map((att: any) => ({
         id: String(att.id),
         filename: att.filename,
-        contentType: att['content-type'] || att.content_type || 'unknown',
+        contentType: att["content-type"] || att.content_type || "unknown",
         url: att.url,
-        size: att.size || 0
-      }))
+        size: att.size || 0,
+      })),
     }));
 
     // Process rubric assessment if included
     let rubricAssessment: RubricAssessmentDetail[] | undefined;
     if (includeRubricAssessment && submissionData.rubric_assessment) {
-      rubricAssessment = Object.entries(submissionData.rubric_assessment).map(([criterionId, assessment]: [string, any]) => ({
-        criterionId,
-        criterionDescription: assessment.criterion_description || 'Unknown Criterion',
-        pointsEarned: assessment.points !== undefined ? Number(assessment.points) : null,
-        pointsPossible: assessment.points_possible || 0,
-        ratingId: assessment.rating_id ? String(assessment.rating_id) : undefined,
-        ratingDescription: assessment.rating_description,
-        comments: assessment.comments
-      }));
+      rubricAssessment = Object.entries(submissionData.rubric_assessment).map(
+        ([criterionId, assessment]: [string, any]) => ({
+          criterionId,
+          criterionDescription:
+            assessment.criterion_description || "Unknown Criterion",
+          pointsEarned:
+            assessment.points !== undefined ? Number(assessment.points) : null,
+          pointsPossible: assessment.points_possible || 0,
+          ratingId: assessment.rating_id
+            ? String(assessment.rating_id)
+            : undefined,
+          ratingDescription: assessment.rating_description,
+          comments: assessment.comments,
+        }),
+      );
     }
 
     // Process submission history if included
     let submissionHistory: SubmissionAttempt[] | undefined;
     if (includeSubmissionHistory && submissionData.submission_history) {
-      submissionHistory = submissionData.submission_history.map((attempt: any) => ({
-        attempt: attempt.attempt || 1,
-        submittedAt: attempt.submitted_at,
-        score: attempt.score,
-        grade: attempt.grade,
-        body: attempt.body,
-        url: attempt.url,
-        attachments: (attempt.attachments || []).map((att: any) => ({
-          id: String(att.id),
-          filename: att.filename,
-          contentType: att['content-type'] || att.content_type || 'unknown',
-          url: att.url,
-          size: att.size || 0
-        }))
-      }));
+      submissionHistory = submissionData.submission_history.map(
+        (attempt: any) => ({
+          attempt: attempt.attempt || 1,
+          submittedAt: attempt.submitted_at,
+          score: attempt.score,
+          grade: attempt.grade,
+          body: attempt.body,
+          url: attempt.url,
+          attachments: (attempt.attachments || []).map((att: any) => ({
+            id: String(att.id),
+            filename: att.filename,
+            contentType: att["content-type"] || att.content_type || "unknown",
+            url: att.url,
+            size: att.size || 0,
+          })),
+        }),
+      );
     }
 
     const result: SubmissionCommentInfo = {
@@ -282,16 +313,15 @@ export async function getSubmissionComments(params: GetSubmissionCommentsParams)
       excused: submissionData.excused || false,
       comments,
       rubricAssessment,
-      submissionHistory
+      submissionHistory,
     };
 
     return result;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get submission comments: ${error.message}`);
     } else {
-      throw new Error('Failed to get submission comments: Unknown error');
+      throw new Error("Failed to get submission comments: Unknown error");
     }
   }
 }
@@ -299,34 +329,44 @@ export async function getSubmissionComments(params: GetSubmissionCommentsParams)
 /**
  * Get detailed submission info with all feedback in one call
  */
-export async function getDetailedSubmission(params: GetDetailedSubmissionParams): Promise<DetailedSubmissionInfo> {
-  let { 
-    canvasBaseUrl, 
-    accessToken, 
-    courseId, 
-    courseName, 
-    assignmentId, 
+export async function getDetailedSubmission(
+  params: GetDetailedSubmissionParams,
+): Promise<DetailedSubmissionInfo> {
+  let {
+    canvasBaseUrl,
+    accessToken,
+    courseId,
+    courseName,
+    assignmentId,
     assignmentName,
-    userId = 'self'
+    userId = "self",
   } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   if (!assignmentId && !assignmentName) {
-    throw new Error('Either assignmentId or assignmentName must be provided');
+    throw new Error("Either assignmentId or assignmentName must be provided");
   }
 
   try {
     // Find course if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
         throw new Error(`Could not find course matching "${courseName}"`);
       }
@@ -339,12 +379,14 @@ export async function getDetailedSubmission(params: GetDetailedSubmissionParams)
       const assignmentResponse = await callCanvasAPI({
         canvasBaseUrl,
         accessToken,
-        method: 'GET',
-        apiPath: `/api/v1/courses/${courseId}/assignments/${assignmentId}?include[]=rubric`
+        method: "GET",
+        apiPath: `/api/v1/courses/${courseId}/assignments/${assignmentId}?include[]=rubric`,
       });
-      
+
       if (!assignmentResponse.ok) {
-        throw new Error(`Failed to fetch assignment: ${assignmentResponse.status}`);
+        throw new Error(
+          `Failed to fetch assignment: ${assignmentResponse.status}`,
+        );
       }
       assignment = await assignmentResponse.json();
     } else {
@@ -353,63 +395,76 @@ export async function getDetailedSubmission(params: GetDetailedSubmissionParams)
         canvasBaseUrl,
         accessToken,
         `/api/v1/courses/${courseId}/assignments`,
-        { per_page: '100', include: ['rubric'] }
+        { per_page: "100", include: ["rubric"] },
       );
-      
-      assignment = findBestMatch(assignmentName!, assignments, ['name']);
+
+      assignment = findBestMatch(assignmentName!, assignments, ["name"]);
       if (!assignment) {
-        throw new Error(`Could not find assignment matching "${assignmentName}" in course`);
+        throw new Error(
+          `Could not find assignment matching "${assignmentName}" in course`,
+        );
       }
       assignmentId = String(assignment.id);
     }
 
     // Get submission with all details
-    const submissionEndpoint = userId === 'self' 
-      ? `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/self`
-      : `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
+    const submissionEndpoint =
+      userId === "self"
+        ? `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/self`
+        : `/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`;
 
     const submissionResponse = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
-      apiPath: `${submissionEndpoint}?include[]=submission_comments&include[]=rubric_assessment&include[]=user&include[]=attachments`
+      method: "GET",
+      apiPath: `${submissionEndpoint}?include[]=submission_comments&include[]=rubric_assessment&include[]=user&include[]=attachments`,
     });
 
     if (!submissionResponse.ok) {
-      throw new Error(`Failed to fetch submission: ${submissionResponse.status}`);
+      throw new Error(
+        `Failed to fetch submission: ${submissionResponse.status}`,
+      );
     }
 
     const submissionData = await submissionResponse.json();
 
     // Process comments
-    const comments: CommentDetail[] = (submissionData.submission_comments || []).map((comment: any) => ({
+    const comments: CommentDetail[] = (
+      submissionData.submission_comments || []
+    ).map((comment: any) => ({
       id: String(comment.id),
       authorId: String(comment.author_id),
-      authorName: comment.author_name || 'Unknown',
-      comment: comment.comment || '',
+      authorName: comment.author_name || "Unknown",
+      comment: comment.comment || "",
       createdAt: comment.created_at,
       editedAt: comment.edited_at,
       attachments: (comment.attachments || []).map((att: any) => ({
         id: String(att.id),
         filename: att.filename,
-        contentType: att['content-type'] || att.content_type || 'unknown',
+        contentType: att["content-type"] || att.content_type || "unknown",
         url: att.url,
-        size: att.size || 0
-      }))
+        size: att.size || 0,
+      })),
     }));
 
     // Process rubric assessment
     let rubricAssessment: RubricAssessmentDetail[] | undefined;
     if (submissionData.rubric_assessment) {
-      rubricAssessment = Object.entries(submissionData.rubric_assessment).map(([criterionId, assessment]: [string, any]) => ({
-        criterionId,
-        criterionDescription: assessment.criterion_description || 'Unknown Criterion',
-        pointsEarned: assessment.points !== undefined ? Number(assessment.points) : null,
-        pointsPossible: assessment.points_possible || 0,
-        ratingId: assessment.rating_id ? String(assessment.rating_id) : undefined,
-        ratingDescription: assessment.rating_description,
-        comments: assessment.comments
-      }));
+      rubricAssessment = Object.entries(submissionData.rubric_assessment).map(
+        ([criterionId, assessment]: [string, any]) => ({
+          criterionId,
+          criterionDescription:
+            assessment.criterion_description || "Unknown Criterion",
+          pointsEarned:
+            assessment.points !== undefined ? Number(assessment.points) : null,
+          pointsPossible: assessment.points_possible || 0,
+          ratingId: assessment.rating_id
+            ? String(assessment.rating_id)
+            : undefined,
+          ratingDescription: assessment.rating_description,
+          comments: assessment.comments,
+        }),
+      );
     }
 
     // Process rubric criteria from assignment
@@ -424,8 +479,8 @@ export async function getDetailedSubmission(params: GetDetailedSubmissionParams)
           id: String(rating.id),
           description: rating.description,
           longDescription: rating.long_description,
-          points: rating.points
-        }))
+          points: rating.points,
+        })),
       }));
     }
 
@@ -434,9 +489,9 @@ export async function getDetailedSubmission(params: GetDetailedSubmissionParams)
         id: String(assignment.id),
         name: assignment.name,
         pointsPossible: assignment.points_possible || 0,
-        description: assignment.description || '',
+        description: assignment.description || "",
         dueAt: assignment.due_at,
-        submissionTypes: assignment.submission_types || []
+        submissionTypes: assignment.submission_types || [],
       },
       submission: {
         id: String(submissionData.id),
@@ -453,23 +508,22 @@ export async function getDetailedSubmission(params: GetDetailedSubmissionParams)
         attachments: (submissionData.attachments || []).map((att: any) => ({
           id: String(att.id),
           filename: att.filename,
-          contentType: att['content-type'] || att.content_type || 'unknown',
+          contentType: att["content-type"] || att.content_type || "unknown",
           url: att.url,
-          size: att.size || 0
-        }))
+          size: att.size || 0,
+        })),
       },
       comments,
       rubricAssessment,
-      rubricCriteria
+      rubricCriteria,
     };
 
     return result;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get detailed submission: ${error.message}`);
     } else {
-      throw new Error('Failed to get detailed submission: Unknown error');
+      throw new Error("Failed to get detailed submission: Unknown error");
     }
   }
 }

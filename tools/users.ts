@@ -1,11 +1,11 @@
 // MCP Tool: Canvas Users and People Search
 // Implementation of user search functionality for messaging
 
-import { callCanvasAPI } from '../lib/canvas-api.js';
-import { fetchAllPaginated } from '../lib/pagination.js';
-import { listCourses } from './courses.js';
-import { findBestMatch } from '../lib/search.js';
-import { logger } from '../lib/logger.js';
+import { callCanvasAPI } from "../lib/canvas-api.js";
+import { fetchAllPaginated } from "../lib/pagination.js";
+import { listCourses } from "./courses.js";
+import { findBestMatch } from "../lib/search.js";
+import { logger } from "../lib/logger.js";
 
 export interface FindPeopleParams {
   canvasBaseUrl: string;
@@ -13,9 +13,21 @@ export interface FindPeopleParams {
   courseId?: string;
   courseName?: string;
   searchTerm?: string;
-  enrollmentType?: 'student' | 'teacher' | 'ta' | 'observer' | 'designer';
-  enrollmentState?: 'active' | 'invited' | 'rejected' | 'completed' | 'inactive';
-  include?: ('enrollments' | 'locked' | 'avatar_url' | 'test_student' | 'bio' | 'custom_links')[];
+  enrollmentType?: "student" | "teacher" | "ta" | "observer" | "designer";
+  enrollmentState?:
+    | "active"
+    | "invited"
+    | "rejected"
+    | "completed"
+    | "inactive";
+  include?: (
+    | "enrollments"
+    | "locked"
+    | "avatar_url"
+    | "test_student"
+    | "bio"
+    | "custom_links"
+  )[];
 }
 
 export interface SearchRecipientsParams {
@@ -24,7 +36,7 @@ export interface SearchRecipientsParams {
   search?: string;
   context?: string; // e.g., "course_123" or "section_456"
   exclude?: string[];
-  type?: 'user' | 'context';
+  type?: "user" | "context";
   userId?: string;
   fromConversationId?: string;
   permissions?: string[];
@@ -66,34 +78,57 @@ export interface RecipientInfo {
 /**
  * Find people in a specific course
  */
-export async function findPeopleInCourse(params: FindPeopleParams): Promise<UserInfo[]> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, searchTerm, enrollmentType, enrollmentState = 'active', include = ['enrollments', 'avatar_url'] } = params;
+export async function findPeopleInCourse(
+  params: FindPeopleParams,
+): Promise<UserInfo[]> {
+  let {
+    canvasBaseUrl,
+    accessToken,
+    courseId,
+    courseName,
+    searchTerm,
+    enrollmentType,
+    enrollmentState = "active",
+    include = ["enrollments", "avatar_url"],
+  } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   try {
     // Resolve courseName to courseId if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
-        throw new Error(`Could not find a course with the name "${courseName}".`);
+        throw new Error(
+          `Could not find a course with the name "${courseName}".`,
+        );
       }
       courseId = matchedCourse.id;
     }
 
-    logger.info(`Finding people in course ${courseId}${searchTerm ? ` matching "${searchTerm}"` : ''}`);
+    logger.info(
+      `Finding people in course ${courseId}${searchTerm ? ` matching "${searchTerm}"` : ""}`,
+    );
 
     const queryParams: Record<string, any> = {
-      per_page: '100',
+      per_page: "100",
       enrollment_state: enrollmentState,
-      include: include
+      include: include,
     };
 
     if (searchTerm) {
@@ -108,10 +143,10 @@ export async function findPeopleInCourse(params: FindPeopleParams): Promise<User
       canvasBaseUrl,
       accessToken,
       `/api/v1/courses/${courseId}/users`,
-      queryParams
+      queryParams,
     );
 
-    const users: UserInfo[] = usersData.map(user => ({
+    const users: UserInfo[] = usersData.map((user) => ({
       id: user.id,
       name: user.name || user.display_name || `User ${user.id}`,
       displayName: user.display_name,
@@ -125,21 +160,20 @@ export async function findPeopleInCourse(params: FindPeopleParams): Promise<User
         type: enr.type,
         state: enr.enrollment_state,
         courseSectionId: enr.course_section_id,
-        courseId: enr.course_id
+        courseId: enr.course_id,
       })),
       email: user.email,
       locale: user.locale,
       pronouns: user.pronouns,
-      bio: user.bio
+      bio: user.bio,
     }));
 
     return users;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to find people in course: ${error.message}`);
     } else {
-      throw new Error('Failed to find people in course: Unknown error');
+      throw new Error("Failed to find people in course: Unknown error");
     }
   }
 }
@@ -148,18 +182,32 @@ export async function findPeopleInCourse(params: FindPeopleParams): Promise<User
  * Search for message recipients using Canvas search API
  * This endpoint may be restricted at some institutions
  */
-export async function searchRecipients(params: SearchRecipientsParams): Promise<RecipientInfo[]> {
-  const { canvasBaseUrl, accessToken, search, context, exclude, type, userId, fromConversationId, permissions } = params;
+export async function searchRecipients(
+  params: SearchRecipientsParams,
+): Promise<RecipientInfo[]> {
+  const {
+    canvasBaseUrl,
+    accessToken,
+    search,
+    context,
+    exclude,
+    type,
+    userId,
+    fromConversationId,
+    permissions,
+  } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   try {
-    logger.info(`Searching for recipients${search ? ` matching "${search}"` : ''}${context ? ` in context "${context}"` : ''}`);
+    logger.info(
+      `Searching for recipients${search ? ` matching "${search}"` : ""}${context ? ` in context "${context}"` : ""}`,
+    );
 
     const queryParams: Record<string, any> = {
-      per_page: '100'
+      per_page: "100",
     };
 
     if (search) {
@@ -193,42 +241,47 @@ export async function searchRecipients(params: SearchRecipientsParams): Promise<
     const response = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
-      apiPath: '/api/v1/search/recipients',
-      params: queryParams
+      method: "GET",
+      apiPath: "/api/v1/search/recipients",
+      params: queryParams,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      
+
       // Handle the case where the endpoint is not available
       if (response.status === 401 || response.status === 403) {
-        throw new Error('Search recipients endpoint is not available - institution may have restricted this feature. Use findPeopleInCourse instead.');
+        throw new Error(
+          "Search recipients endpoint is not available - institution may have restricted this feature. Use findPeopleInCourse instead.",
+        );
       }
-      
-      throw new Error(`Failed to search recipients: ${response.status} ${response.statusText} - ${errorText}`);
+
+      throw new Error(
+        `Failed to search recipients: ${response.status} ${response.statusText} - ${errorText}`,
+      );
     }
 
     const recipientsData = await response.json();
 
-    const recipients: RecipientInfo[] = recipientsData.map((recipient: any) => ({
-      id: recipient.id,
-      name: recipient.name,
-      fullName: recipient.full_name,
-      commonCourses: recipient.common_courses,
-      commonGroups: recipient.common_groups,
-      avatarUrl: recipient.avatar_url,
-      pronouns: recipient.pronouns,
-      userCount: recipient.user_count
-    }));
+    const recipients: RecipientInfo[] = recipientsData.map(
+      (recipient: any) => ({
+        id: recipient.id,
+        name: recipient.name,
+        fullName: recipient.full_name,
+        commonCourses: recipient.common_courses,
+        commonGroups: recipient.common_groups,
+        avatarUrl: recipient.avatar_url,
+        pronouns: recipient.pronouns,
+        userCount: recipient.user_count,
+      }),
+    );
 
     return recipients;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to search recipients: ${error.message}`);
     } else {
-      throw new Error('Failed to search recipients: Unknown error');
+      throw new Error("Failed to search recipients: Unknown error");
     }
   }
 }
@@ -240,16 +293,29 @@ export async function getUserProfile(params: {
   canvasBaseUrl: string;
   accessToken: string;
   userId: string;
-  include?: ('locale' | 'avatar_url' | 'permissions' | 'email' | 'effective_locale' | 'bio' | 'pronouns')[];
+  include?: (
+    | "locale"
+    | "avatar_url"
+    | "permissions"
+    | "email"
+    | "effective_locale"
+    | "bio"
+    | "pronouns"
+  )[];
 }): Promise<UserInfo> {
-  const { canvasBaseUrl, accessToken, userId, include = ['avatar_url', 'email', 'bio', 'pronouns'] } = params;
+  const {
+    canvasBaseUrl,
+    accessToken,
+    userId,
+    include = ["avatar_url", "email", "bio", "pronouns"],
+  } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!userId) {
-    throw new Error('userId is required');
+    throw new Error("userId is required");
   }
 
   try {
@@ -264,14 +330,16 @@ export async function getUserProfile(params: {
     const response = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
+      method: "GET",
       apiPath: `/api/v1/users/${userId}/profile`,
-      params: queryParams
+      params: queryParams,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get user profile: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Failed to get user profile: ${response.status} ${response.statusText} - ${errorText}`,
+      );
     }
 
     const user = await response.json();
@@ -289,14 +357,13 @@ export async function getUserProfile(params: {
       email: user.primary_email || user.email,
       locale: user.locale,
       pronouns: user.pronouns,
-      bio: user.bio
+      bio: user.bio,
     };
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get user profile: ${error.message}`);
     } else {
-      throw new Error('Failed to get user profile: Unknown error');
+      throw new Error("Failed to get user profile: Unknown error");
     }
   }
 }
@@ -307,10 +374,18 @@ export async function getUserProfile(params: {
 export async function getMyProfile(params: {
   canvasBaseUrl: string;
   accessToken: string;
-  include?: ('locale' | 'avatar_url' | 'permissions' | 'email' | 'effective_locale' | 'bio' | 'pronouns')[];
+  include?: (
+    | "locale"
+    | "avatar_url"
+    | "permissions"
+    | "email"
+    | "effective_locale"
+    | "bio"
+    | "pronouns"
+  )[];
 }): Promise<UserInfo> {
   return getUserProfile({
     ...params,
-    userId: 'self'
+    userId: "self",
   });
-} 
+}

@@ -23,7 +23,7 @@ paths:
             default: active
           description: Filter courses by enrollment state
       responses:
-        '200':
+        "200":
           description: Successfully retrieved courses
           content:
             application/json:
@@ -87,7 +87,7 @@ paths:
             type: string
           description: Optional search term to filter pages by title
       responses:
-        '200':
+        "200":
           description: Successfully retrieved pages
           content:
             application/json:
@@ -133,7 +133,7 @@ paths:
             type: string
           description: The Canvas page ID or URL slug
       responses:
-        '200':
+        "200":
           description: Successfully retrieved page content
           content:
             application/json:
@@ -189,7 +189,7 @@ paths:
             type: string
           description: Optional search term to filter discussions
       responses:
-        '200':
+        "200":
           description: Successfully retrieved discussions
           content:
             application/json:
@@ -244,7 +244,7 @@ paths:
             default: true
           description: Include discussion replies
       responses:
-        '200':
+        "200":
           description: Successfully retrieved discussion content
           content:
             application/json:
@@ -293,7 +293,7 @@ paths:
             default: false
           description: Include submission information
       responses:
-        '200':
+        "200":
           description: Successfully retrieved assignments
           content:
             application/json:
@@ -343,7 +343,7 @@ paths:
             type: string
           description: The name of the assignment to retrieve.
       responses:
-        '200':
+        "200":
           description: Successfully retrieved the assignment
           content:
             application/json:
@@ -406,7 +406,7 @@ paths:
             type: string
           description: Optional search term to filter files by name
       responses:
-        '200':
+        "200":
           description: Successfully retrieved files
           content:
             application/json:
@@ -454,7 +454,7 @@ paths:
             type: string
           description: The Canvas file ID
       responses:
-        '200':
+        "200":
           description: Successfully retrieved file content
           content:
             application/json:

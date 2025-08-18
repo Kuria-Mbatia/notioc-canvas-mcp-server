@@ -1,5 +1,5 @@
-import { callCanvasAPI } from '../lib/canvas-api.js';
-import { logger } from '../lib/logger.js';
+import { callCanvasAPI } from "../lib/canvas-api.js";
+import { logger } from "../lib/logger.js";
 
 export interface CanvasFileDownloadParams {
   canvasBaseUrl: string;
@@ -11,45 +11,64 @@ export interface CanvasFileDownloadParams {
   submissionId?: string;
 }
 
-export async function downloadSubmissionFile(params: CanvasFileDownloadParams): Promise<{ filename: string; content: string; contentType: string; size: number }> {
-  const { canvasBaseUrl, accessToken, submissionUrl, fileId, courseId, assignmentId, submissionId } = params;
+export async function downloadSubmissionFile(
+  params: CanvasFileDownloadParams,
+): Promise<{
+  filename: string;
+  content: string;
+  contentType: string;
+  size: number;
+}> {
+  const {
+    canvasBaseUrl,
+    accessToken,
+    submissionUrl,
+    fileId,
+    courseId,
+    assignmentId,
+    submissionId,
+  } = params;
 
   try {
     let downloadFileId = fileId;
-    
+
     // If we have a submission URL, extract the file ID
     if (submissionUrl && !downloadFileId) {
       const urlParams = new URL(submissionUrl);
-      const extractedFileId = urlParams.searchParams.get('download');
-      
+      const extractedFileId = urlParams.searchParams.get("download");
+
       if (!extractedFileId) {
-        throw new Error('Could not extract file ID from submission URL');
+        throw new Error("Could not extract file ID from submission URL");
       }
-      
+
       downloadFileId = extractedFileId;
       logger.info(`Extracted file ID ${downloadFileId} from submission URL`);
     }
 
     if (!downloadFileId) {
-      throw new Error('No file ID provided or could be extracted');
+      throw new Error("No file ID provided or could be extracted");
     }
 
     // Method 1: Try Canvas file API with the extracted file ID
     logger.info(`Attempting to download file ID: ${downloadFileId}`);
-    
+
     const fileInfoResponse = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
-      apiPath: `/api/v1/files/${downloadFileId}`
+      method: "GET",
+      apiPath: `/api/v1/files/${downloadFileId}`,
     });
 
     if (!fileInfoResponse.ok) {
-      throw new Error(`Failed to get file info: ${fileInfoResponse.status} ${fileInfoResponse.statusText}`);
+      throw new Error(
+        `Failed to get file info: ${fileInfoResponse.status} ${fileInfoResponse.statusText}`,
+      );
     }
 
     const fileInfo = await fileInfoResponse.json();
-    logger.info(`File info: ${fileInfo.display_name}, size: ${fileInfo.size}, type: ${fileInfo['content-type']}`);
+    logger.info(
+      `File info: ${fileInfo.display_name}, size: ${fileInfo.size}, type: ${fileInfo["content-type"]}`,
+    );
 
     // Method 2: Try different download strategies
     const downloadStrategies = [
@@ -58,9 +77,11 @@ export async function downloadSubmissionFile(params: CanvasFileDownloadParams): 
       // Strategy 2: Direct file URL
       fileInfo.url,
       // Strategy 3: If we have course/assignment context, try submission-specific endpoint
-      ...(courseId && assignmentId && submissionId ? [
-        `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}/attachments/${downloadFileId}`
-      ] : [])
+      ...(courseId && assignmentId && submissionId
+        ? [
+            `${canvasBaseUrl}/api/v1/courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}/attachments/${downloadFileId}`,
+          ]
+        : []),
     ];
 
     let fileResponse;
@@ -69,14 +90,14 @@ export async function downloadSubmissionFile(params: CanvasFileDownloadParams): 
     for (const url of downloadStrategies) {
       try {
         logger.info(`Trying download URL: ${url}`);
-        
+
         fileResponse = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': '*/*',
-            'User-Agent': 'Canvas-MCP-Client/1.0',
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "*/*",
+            "User-Agent": "Canvas-MCP-Client/1.0",
           },
-          redirect: 'follow'
+          redirect: "follow",
         });
 
         if (fileResponse.ok) {
@@ -84,7 +105,9 @@ export async function downloadSubmissionFile(params: CanvasFileDownloadParams): 
           logger.info(`Successfully downloaded from: ${url}`);
           break;
         } else {
-          logger.warn(`Download failed from ${url}: ${fileResponse.status} ${fileResponse.statusText}`);
+          logger.warn(
+            `Download failed from ${url}: ${fileResponse.status} ${fileResponse.statusText}`,
+          );
         }
       } catch (error) {
         logger.warn(`Error downloading from ${url}: ${error}`);
@@ -92,18 +115,28 @@ export async function downloadSubmissionFile(params: CanvasFileDownloadParams): 
     }
 
     if (!fileResponse || !fileResponse.ok) {
-      throw new Error('All download strategies failed');
+      throw new Error("All download strategies failed");
     }
 
     // Process the file content
-    const contentType = fileResponse.headers.get('content-type') || fileInfo['content-type'] || 'application/octet-stream';
-    const contentLength = parseInt(fileResponse.headers.get('content-length') || '0') || fileInfo.size || 0;
-    
+    const contentType =
+      fileResponse.headers.get("content-type") ||
+      fileInfo["content-type"] ||
+      "application/octet-stream";
+    const contentLength =
+      parseInt(fileResponse.headers.get("content-length") || "0") ||
+      fileInfo.size ||
+      0;
+
     let content: string;
 
-    if (contentType.includes('text') || contentType.includes('json') || contentType.includes('xml')) {
+    if (
+      contentType.includes("text") ||
+      contentType.includes("json") ||
+      contentType.includes("xml")
+    ) {
       content = await fileResponse.text();
-    } else if (contentType.includes('pdf')) {
+    } else if (contentType.includes("pdf")) {
       // For PDFs, we'll provide a placeholder since we can't extract text easily
       const buffer = await fileResponse.arrayBuffer();
       content = `[PDF File: ${fileInfo.display_name}, ${buffer.byteLength} bytes]\n\nThis is a PDF file. To view the actual content, you would need to download and open it in a PDF viewer.\n\nDownload from: ${successfulUrl}`;
@@ -117,11 +150,12 @@ export async function downloadSubmissionFile(params: CanvasFileDownloadParams): 
       filename: fileInfo.display_name,
       content,
       contentType,
-      size: contentLength
+      size: contentLength,
     };
-
   } catch (error) {
     logger.error(`Failed to download submission file: ${error}`);
-    throw new Error(`Failed to download submission file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to download submission file: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 }

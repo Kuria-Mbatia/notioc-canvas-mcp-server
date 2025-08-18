@@ -21,6 +21,7 @@ Brief description of the changes in this pull request.
 ## Canvas API Changes
 
 If applicable:
+
 - [ ] Added new Canvas API endpoints
 - [ ] Modified existing Canvas API calls
 - [ ] Updated error handling for Canvas responses

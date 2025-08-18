@@ -1,5 +1,5 @@
 // Canvas API proxy for MCP server - adapted from Notioc's canvas-proxy.ts
-import NodeCache from 'node-cache';
+import NodeCache from "node-cache";
 
 // Initialize cache with a 5-minute TTL for each entry
 const canvasCache = new NodeCache({ stdTTL: 300 });
@@ -7,7 +7,7 @@ const canvasCache = new NodeCache({ stdTTL: 300 });
 interface ProxyRequestParams {
   canvasBaseUrl: string;
   accessToken: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: "GET" | "POST" | "PUT" | "DELETE";
   apiPath: string; // e.g., '/api/v1/courses'
   params?: Record<string, string | number | boolean | string[]>; // For GET query parameters
   body?: Record<string, any>; // For POST/PUT request body
@@ -24,19 +24,21 @@ export async function callCanvasAPI({
   returnRawBuffer = false,
 }: ProxyRequestParams): Promise<Response> {
   if (!canvasBaseUrl || !accessToken || !method || !apiPath) {
-    throw new Error('Missing required Canvas API parameters');
+    throw new Error("Missing required Canvas API parameters");
   }
 
   // Construct the target URL
-  const cleanBaseUrl = canvasBaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const cleanBaseUrl = canvasBaseUrl
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
   let targetUrl = `https://${cleanBaseUrl}${apiPath}`;
 
   // Add query parameters for GET requests
-  if (method === 'GET' && params) {
+  if (method === "GET" && params) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (Array.isArray(value)) {
-        value.forEach(v => query.append(`${key}[]`, String(v)));
+        value.forEach((v) => query.append(`${key}[]`, String(v)));
       } else {
         query.append(key, String(value));
       }
@@ -48,21 +50,21 @@ export async function callCanvasAPI({
 
   // Prepare headers
   const headers: HeadersInit = {
-    'Authorization': `Bearer ${accessToken}`,
+    Authorization: `Bearer ${accessToken}`,
     // IMPORTANT: Request IDs as strings to avoid JS precision issues
-    'Accept': 'application/json+canvas-string-ids',
-    'User-Agent': 'Notioc-MCP-Server/1.0.0',
+    Accept: "application/json+canvas-string-ids",
+    "User-Agent": "Notioc-MCP-Server/1.0.0",
   };
 
   // Prepare body for POST/PUT
   let requestBody: BodyInit | null = null;
-  if ((method === 'POST' || method === 'PUT') && body) {
-    headers['Content-Type'] = 'application/json';
+  if ((method === "POST" || method === "PUT") && body) {
+    headers["Content-Type"] = "application/json";
     requestBody = JSON.stringify(body);
   }
 
   // Caching for GET requests
-  if (method === 'GET') {
+  if (method === "GET") {
     const cacheKey = targetUrl;
     const cachedResponse = canvasCache.get<Buffer>(cacheKey);
 
@@ -71,8 +73,8 @@ export async function callCanvasAPI({
       return new Response(cachedResponse.toString(), {
         status: 200,
         headers: {
-          'Content-Type': 'application/json',
-          'X-Cache-Hit': 'true',
+          "Content-Type": "application/json",
+          "X-Cache-Hit": "true",
         },
       });
     }
@@ -85,11 +87,11 @@ export async function callCanvasAPI({
       body: requestBody,
     });
 
-    if (method === 'GET' && response.ok) {
+    if (method === "GET" && response.ok) {
       const cacheKey = targetUrl;
       const responseBuffer = await response.arrayBuffer();
       canvasCache.set(cacheKey, Buffer.from(responseBuffer));
-      
+
       // Return a new response from the buffer so the original can be cached
       return new Response(responseBuffer, {
         status: response.status,
@@ -99,13 +101,15 @@ export async function callCanvasAPI({
     }
 
     return response;
-
   } catch (error: any) {
     // Return a generic error response that mimics a fetch failure
-    return new Response(JSON.stringify({ error: `Canvas API network error: ${error.message}` }), {
-      status: 502, // Bad Gateway
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ error: `Canvas API network error: ${error.message}` }),
+      {
+        status: 502, // Bad Gateway
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 }
 

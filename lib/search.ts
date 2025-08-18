@@ -1,4 +1,4 @@
-import Fuse from 'fuse.js';
+import Fuse from "fuse.js";
 
 interface Searchable {
   name?: string;
@@ -16,7 +16,7 @@ interface Searchable {
 export function findBestMatch<T extends Searchable>(
   query: string,
   items: T[],
-  keys: string[]
+  keys: string[],
 ): T | null {
   const fuse = new Fuse(items, {
     includeScore: true,
@@ -32,4 +32,4 @@ export function findBestMatch<T extends Searchable>(
   }
 
   return null;
-} 
+}

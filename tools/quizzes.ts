@@ -1,11 +1,11 @@
 // MCP Tool: Canvas Quizzes
 // Implementation of Canvas quiz functionality
 
-import { callCanvasAPI } from '../lib/canvas-api.js';
-import { fetchAllPaginated } from '../lib/pagination.js';
-import { listCourses } from './courses.js';
-import { findBestMatch } from '../lib/search.js';
-import { logger } from '../lib/logger.js';
+import { callCanvasAPI } from "../lib/canvas-api.js";
+import { fetchAllPaginated } from "../lib/pagination.js";
+import { listCourses } from "./courses.js";
+import { findBestMatch } from "../lib/search.js";
+import { logger } from "../lib/logger.js";
 
 export interface ListQuizzesParams {
   canvasBaseUrl: string;
@@ -21,7 +21,7 @@ export interface QuizDetailsParams {
   courseId?: string;
   courseName?: string;
   quizId: string;
-  include?: ('assignment' | 'submissions' | 'all_dates' | 'permissions')[];
+  include?: ("assignment" | "submissions" | "all_dates" | "permissions")[];
 }
 
 export interface QuizSubmissionsParams {
@@ -30,7 +30,7 @@ export interface QuizSubmissionsParams {
   courseId?: string;
   courseName?: string;
   quizId: string;
-  include?: ('submission' | 'quiz' | 'user')[];
+  include?: ("submission" | "quiz" | "user")[];
 }
 
 export interface QuizInfo {
@@ -100,32 +100,46 @@ export interface QuizSubmissionInfo {
 /**
  * List quizzes in a course
  */
-export async function listQuizzes(params: ListQuizzesParams): Promise<QuizInfo[]> {
+export async function listQuizzes(
+  params: ListQuizzesParams,
+): Promise<QuizInfo[]> {
   let { canvasBaseUrl, accessToken, courseId, courseName, searchTerm } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   try {
     // Resolve courseName to courseId if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
-        throw new Error(`Could not find a course with the name "${courseName}".`);
+        throw new Error(
+          `Could not find a course with the name "${courseName}".`,
+        );
       }
       courseId = matchedCourse.id;
     }
 
-    logger.info(`Listing quizzes for course ${courseId}${searchTerm ? ` matching "${searchTerm}"` : ''}`);
+    logger.info(
+      `Listing quizzes for course ${courseId}${searchTerm ? ` matching "${searchTerm}"` : ""}`,
+    );
 
     const queryParams: Record<string, any> = {
-      per_page: '100'
+      per_page: "100",
     };
 
     if (searchTerm) {
@@ -136,23 +150,24 @@ export async function listQuizzes(params: ListQuizzesParams): Promise<QuizInfo[]
       canvasBaseUrl,
       accessToken,
       `/api/v1/courses/${courseId}/quizzes`,
-      queryParams
+      queryParams,
     );
 
-    const quizzes: QuizInfo[] = quizzesData.map(quiz => ({
+    const quizzes: QuizInfo[] = quizzesData.map((quiz) => ({
       id: quiz.id,
       title: quiz.title || `Quiz ${quiz.id}`,
       description: quiz.description,
       htmlUrl: quiz.html_url,
       mobileUrl: quiz.mobile_url,
       previewUrl: quiz.preview_url,
-      quizType: quiz.quiz_type || 'practice_quiz',
+      quizType: quiz.quiz_type || "practice_quiz",
       assignmentGroupId: quiz.assignment_group_id,
       timeLimit: quiz.time_limit,
       shuffleAnswers: quiz.shuffle_answers || false,
       hideResults: quiz.hide_results,
       showCorrectAnswers: quiz.show_correct_answers || false,
-      showCorrectAnswersLastAttempt: quiz.show_correct_answers_last_attempt || false,
+      showCorrectAnswersLastAttempt:
+        quiz.show_correct_answers_last_attempt || false,
       showCorrectAnswersAt: quiz.show_correct_answers_at,
       hideCorrectAnswersAt: quiz.hide_correct_answers_at,
       allowedAttempts: quiz.allowed_attempts || 1,
@@ -176,25 +191,26 @@ export async function listQuizzes(params: ListQuizzesParams): Promise<QuizInfo[]
       questionTypes: quiz.question_types || [],
       hasAccessCode: quiz.has_access_code || false,
       postToSis: quiz.post_to_sis || false,
-      migrationId: quiz.migration_id
+      migrationId: quiz.migration_id,
     }));
 
     // Apply search term filtering if provided (client-side filtering as backup)
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase();
-      return quizzes.filter(quiz => 
-        quiz.title.toLowerCase().includes(lowerSearchTerm) ||
-        (quiz.description && quiz.description.toLowerCase().includes(lowerSearchTerm))
+      return quizzes.filter(
+        (quiz) =>
+          quiz.title.toLowerCase().includes(lowerSearchTerm) ||
+          (quiz.description &&
+            quiz.description.toLowerCase().includes(lowerSearchTerm)),
       );
     }
 
     return quizzes;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to list quizzes: ${error.message}`);
     } else {
-      throw new Error('Failed to list quizzes: Unknown error');
+      throw new Error("Failed to list quizzes: Unknown error");
     }
   }
 }
@@ -202,28 +218,49 @@ export async function listQuizzes(params: ListQuizzesParams): Promise<QuizInfo[]
 /**
  * Get details of a specific quiz
  */
-export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInfo & { assignment?: any; submissions?: QuizSubmissionInfo[] }> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, quizId, include = ['assignment'] } = params;
+export async function getQuizDetails(
+  params: QuizDetailsParams,
+): Promise<
+  QuizInfo & { assignment?: any; submissions?: QuizSubmissionInfo[] }
+> {
+  let {
+    canvasBaseUrl,
+    accessToken,
+    courseId,
+    courseName,
+    quizId,
+    include = ["assignment"],
+  } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   if (!quizId) {
-    throw new Error('quizId is required');
+    throw new Error("quizId is required");
   }
 
   try {
     // Resolve courseName to courseId if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
-        throw new Error(`Could not find a course with the name "${courseName}".`);
+        throw new Error(
+          `Could not find a course with the name "${courseName}".`,
+        );
       }
       courseId = matchedCourse.id;
     }
@@ -239,14 +276,16 @@ export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInf
     const response = await callCanvasAPI({
       canvasBaseUrl,
       accessToken,
-      method: 'GET',
+      method: "GET",
       apiPath: `/api/v1/courses/${courseId}/quizzes/${quizId}`,
-      params: queryParams
+      params: queryParams,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get quiz details: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Failed to get quiz details: ${response.status} ${response.statusText} - ${errorText}`,
+      );
     }
 
     const quiz = await response.json();
@@ -258,13 +297,14 @@ export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInf
       htmlUrl: quiz.html_url,
       mobileUrl: quiz.mobile_url,
       previewUrl: quiz.preview_url,
-      quizType: quiz.quiz_type || 'practice_quiz',
+      quizType: quiz.quiz_type || "practice_quiz",
       assignmentGroupId: quiz.assignment_group_id,
       timeLimit: quiz.time_limit,
       shuffleAnswers: quiz.shuffle_answers || false,
       hideResults: quiz.hide_results,
       showCorrectAnswers: quiz.show_correct_answers || false,
-      showCorrectAnswersLastAttempt: quiz.show_correct_answers_last_attempt || false,
+      showCorrectAnswersLastAttempt:
+        quiz.show_correct_answers_last_attempt || false,
       showCorrectAnswersAt: quiz.show_correct_answers_at,
       hideCorrectAnswersAt: quiz.hide_correct_answers_at,
       allowedAttempts: quiz.allowed_attempts || 1,
@@ -288,16 +328,16 @@ export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInf
       questionTypes: quiz.question_types || [],
       hasAccessCode: quiz.has_access_code || false,
       postToSis: quiz.post_to_sis || false,
-      migrationId: quiz.migration_id
+      migrationId: quiz.migration_id,
     };
 
     const result: any = quizInfo;
 
-    if (quiz.assignment && include.includes('assignment')) {
+    if (quiz.assignment && include.includes("assignment")) {
       result.assignment = quiz.assignment;
     }
 
-    if (quiz.submissions && include.includes('submissions')) {
+    if (quiz.submissions && include.includes("submissions")) {
       result.submissions = quiz.submissions.map((sub: any) => ({
         id: sub.id,
         quizId: sub.quiz_id,
@@ -316,20 +356,19 @@ export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInf
         keptScore: sub.kept_score,
         fudgePoints: sub.fudge_points,
         hasSeenResults: sub.has_seen_results || false,
-        workflowState: sub.workflow_state || 'untaken',
+        workflowState: sub.workflow_state || "untaken",
         quizPointsPossible: sub.quiz_points_possible,
         validationToken: sub.validation_token,
-        htmlUrl: sub.html_url
+        htmlUrl: sub.html_url,
       }));
     }
 
     return result;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get quiz details: ${error.message}`);
     } else {
-      throw new Error('Failed to get quiz details: Unknown error');
+      throw new Error("Failed to get quiz details: Unknown error");
     }
   }
 }
@@ -337,28 +376,47 @@ export async function getQuizDetails(params: QuizDetailsParams): Promise<QuizInf
 /**
  * Get quiz submissions for a specific quiz
  */
-export async function getQuizSubmissions(params: QuizSubmissionsParams): Promise<QuizSubmissionInfo[]> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, quizId, include = ['submission', 'user'] } = params;
+export async function getQuizSubmissions(
+  params: QuizSubmissionsParams,
+): Promise<QuizSubmissionInfo[]> {
+  let {
+    canvasBaseUrl,
+    accessToken,
+    courseId,
+    courseName,
+    quizId,
+    include = ["submission", "user"],
+  } = params;
 
   if (!canvasBaseUrl || !accessToken) {
-    throw new Error('Missing Canvas URL or Access Token');
+    throw new Error("Missing Canvas URL or Access Token");
   }
 
   if (!courseId && !courseName) {
-    throw new Error('Either courseId or courseName must be provided');
+    throw new Error("Either courseId or courseName must be provided");
   }
 
   if (!quizId) {
-    throw new Error('quizId is required');
+    throw new Error("quizId is required");
   }
 
   try {
     // Resolve courseName to courseId if needed
     if (courseName && !courseId) {
-      const courses = await listCourses({ canvasBaseUrl, accessToken, enrollmentState: 'all' });
-      const matchedCourse = findBestMatch(courseName, courses, ['name', 'courseCode', 'nickname']);
+      const courses = await listCourses({
+        canvasBaseUrl,
+        accessToken,
+        enrollmentState: "all",
+      });
+      const matchedCourse = findBestMatch(courseName, courses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
       if (!matchedCourse) {
-        throw new Error(`Could not find a course with the name "${courseName}".`);
+        throw new Error(
+          `Could not find a course with the name "${courseName}".`,
+        );
       }
       courseId = matchedCourse.id;
     }
@@ -366,7 +424,7 @@ export async function getQuizSubmissions(params: QuizSubmissionsParams): Promise
     logger.info(`Getting submissions for quiz ${quizId} in course ${courseId}`);
 
     const queryParams: Record<string, any> = {
-      per_page: '100'
+      per_page: "100",
     };
 
     if (include && include.length > 0) {
@@ -377,10 +435,10 @@ export async function getQuizSubmissions(params: QuizSubmissionsParams): Promise
       canvasBaseUrl,
       accessToken,
       `/api/v1/courses/${courseId}/quizzes/${quizId}/submissions`,
-      queryParams
+      queryParams,
     );
 
-    const submissions: QuizSubmissionInfo[] = submissionsData.map(sub => ({
+    const submissions: QuizSubmissionInfo[] = submissionsData.map((sub) => ({
       id: sub.id,
       quizId: sub.quiz_id,
       userId: sub.user_id,
@@ -398,19 +456,18 @@ export async function getQuizSubmissions(params: QuizSubmissionsParams): Promise
       keptScore: sub.kept_score,
       fudgePoints: sub.fudge_points,
       hasSeenResults: sub.has_seen_results || false,
-      workflowState: sub.workflow_state || 'untaken',
+      workflowState: sub.workflow_state || "untaken",
       quizPointsPossible: sub.quiz_points_possible,
       validationToken: sub.validation_token,
-      htmlUrl: sub.html_url
+      htmlUrl: sub.html_url,
     }));
 
     return submissions;
-
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get quiz submissions: ${error.message}`);
     } else {
-      throw new Error('Failed to get quiz submissions: Unknown error');
+      throw new Error("Failed to get quiz submissions: Unknown error");
     }
   }
-} 
+}

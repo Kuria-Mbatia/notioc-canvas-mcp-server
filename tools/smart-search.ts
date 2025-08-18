@@ -3,16 +3,21 @@
  * Intelligent content discovery that handles API restrictions gracefully
  */
 
-import { smartSearch, extractCourseContent, getExtractionStats, clearCourseCache } from '../lib/content-extraction.js';
-import { logger } from '../lib/logger.js';
-import { 
-  classifyIntent, 
-  rerankCandidates, 
-  IntentClassification, 
-  RerankCandidate, 
+import {
+  smartSearch,
+  extractCourseContent,
+  getExtractionStats,
+  clearCourseCache,
+} from "../lib/content-extraction.js";
+import { logger } from "../lib/logger.js";
+import {
+  classifyIntent,
+  rerankCandidates,
+  IntentClassification,
+  RerankCandidate,
   RerankResult,
-  DEFAULT_SMALL_MODEL_CONFIG 
-} from '../lib/small-model.js';
+  DEFAULT_SMALL_MODEL_CONFIG,
+} from "../lib/small-model.js";
 
 export interface SmartSearchParams {
   canvasBaseUrl: string;
@@ -23,7 +28,7 @@ export interface SmartSearchParams {
   forceRefresh?: boolean;
   includeContent?: boolean;
   maxResults?: number; // NEW: limit number of results (default 5)
-  returnMode?: 'refs' | 'answer' | 'full'; // NEW: control output verbosity (default 'refs')
+  returnMode?: "refs" | "answer" | "full"; // NEW: control output verbosity (default 'refs')
   useSmallModel?: boolean; // NEW: enable intent classification and reranking (default true)
 }
 
@@ -73,7 +78,7 @@ export interface SmartSearchResult {
 // NEW: Compact citation format for 'refs' mode
 export interface CompactCitation {
   id: string;
-  type: 'file' | 'page' | 'link';
+  type: "file" | "page" | "link";
   title: string;
   source: string;
   relevance: number;
@@ -106,41 +111,53 @@ export interface CompactSearchResult {
 // NEW: Text budget helper to enforce token limits
 function enforceTextBudget(text: string, maxChars: number = 2000): string {
   if (text.length <= maxChars) return text;
-  
+
   const truncated = text.slice(0, maxChars - 10);
-  const lastSpace = truncated.lastIndexOf(' ');
+  const lastSpace = truncated.lastIndexOf(" ");
   const cutPoint = lastSpace > maxChars * 0.8 ? lastSpace : truncated.length;
-  
-  return truncated.slice(0, cutPoint) + '...[truncated]';
+
+  return truncated.slice(0, cutPoint) + "...[truncated]";
 }
 
 /**
  * Smart search across course content with automatic discovery
  */
-export async function performSmartSearch(params: SmartSearchParams): Promise<SmartSearchResult | CompactSearchResult> {
+export async function performSmartSearch(
+  params: SmartSearchParams,
+): Promise<SmartSearchResult | CompactSearchResult> {
   const startTime = Date.now();
-  
+
   // NEW: Extract efficiency parameters with defaults
   const maxResults = params.maxResults ?? 5;
-  const returnMode = params.returnMode ?? 'refs';
-  const useSmallModel = params.useSmallModel ?? DEFAULT_SMALL_MODEL_CONFIG.enabled;
-  
+  const returnMode = params.returnMode ?? "refs";
+  const useSmallModel =
+    params.useSmallModel ?? DEFAULT_SMALL_MODEL_CONFIG.enabled;
+
   // Declare intent variable in the outer scope so it's available everywhere
   let intent: IntentClassification | undefined;
-  
+
   try {
-    logger.info(`[Smart Search Tool] Searching for "${params.query}" in course ${params.courseId || 'unknown'} (mode: ${returnMode}, maxResults: ${maxResults}, smallModel: ${useSmallModel})`);
-    
+    logger.info(
+      `[Smart Search Tool] Searching for "${params.query}" in course ${params.courseId || "unknown"} (mode: ${returnMode}, maxResults: ${maxResults}, smallModel: ${useSmallModel})`,
+    );
+
     // Step 1: Intent classification (if using small model)
     if (useSmallModel) {
       try {
         intent = await classifyIntent(params.query, params.courseId);
-        logger.debug(`[Smart Search Tool] Intent: ${Object.entries(intent).filter(([k, v]) => k !== 'confidence' && k !== 'reasoning' && v).map(([k]) => k).join(', ')}`);
+        logger.debug(
+          `[Smart Search Tool] Intent: ${Object.entries(intent)
+            .filter(([k, v]) => k !== "confidence" && k !== "reasoning" && v)
+            .map(([k]) => k)
+            .join(", ")}`,
+        );
       } catch (error) {
-        logger.warn(`[Smart Search Tool] Intent classification failed: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warn(
+          `[Smart Search Tool] Intent classification failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
-    
+
     if (!params.courseId) {
       const errorResult = {
         success: false,
@@ -150,24 +167,26 @@ export async function performSmartSearch(params: SmartSearchParams): Promise<Sma
           totalResults: 0,
           searchTime: Date.now() - startTime,
           extractionUsed: false,
-          discoveryMethod: 'none',
+          discoveryMethod: "none",
           truncated: false,
           mode: returnMode,
           intent: intent,
-          reranked: false
+          reranked: false,
         },
-        error: 'Course ID is required for smart search'
+        error: "Course ID is required for smart search",
       };
-      
-      return returnMode === 'refs' ? {
-        ...errorResult,
-        citations: []
-      } as CompactSearchResult : {
-        ...errorResult,
-        results: { files: [], pages: [], links: [] }
-      } as SmartSearchResult;
+
+      return returnMode === "refs"
+        ? ({
+            ...errorResult,
+            citations: [],
+          } as CompactSearchResult)
+        : ({
+            ...errorResult,
+            results: { files: [], pages: [], links: [] },
+          } as SmartSearchResult);
     }
-    
+
     // Perform smart search using content extraction engine
     const searchResult = await smartSearch(
       params.query,
@@ -176,220 +195,252 @@ export async function performSmartSearch(params: SmartSearchParams): Promise<Sma
       params.accessToken,
       {
         forceRefresh: params.forceRefresh,
-        useWebDiscovery: true
-      }
+        useWebDiscovery: true,
+      },
     );
-    
+
     // Get extraction stats for metadata
     const stats = await getExtractionStats(
       params.courseId,
       params.canvasBaseUrl,
-      params.accessToken
+      params.accessToken,
     );
-    
+
     // Enhance file results with processing capability info
-    const enhancedFiles = searchResult.files.map(file => ({
+    const enhancedFiles = searchResult.files.map((file) => ({
       ...file,
-      canProcess: canProcessFile(file.fileName)
+      canProcess: canProcessFile(file.fileName),
     }));
-    
+
     // Step 2: Smart reranking (if using small model and have enough results)
     let rerankedFiles = enhancedFiles;
     let rerankedPages = searchResult.pages;
     let rerankedLinks = searchResult.links;
     let wasReranked = false;
-    
-    if (useSmallModel && intent && (enhancedFiles.length + searchResult.pages.length + searchResult.links.length) > maxResults) {
+
+    if (
+      useSmallModel &&
+      intent &&
+      enhancedFiles.length +
+        searchResult.pages.length +
+        searchResult.links.length >
+        maxResults
+    ) {
       try {
         // Create candidates for reranking
         const candidates: RerankCandidate[] = [
-          ...enhancedFiles.map(f => ({
+          ...enhancedFiles.map((f) => ({
             id: `file_${f.fileId}`,
             title: f.fileName,
             source: f.source,
-            type: 'file' as const,
-            snippet: undefined // Could add file content preview in future
+            type: "file" as const,
+            snippet: undefined, // Could add file content preview in future
           })),
-          ...searchResult.pages.map(p => ({
+          ...searchResult.pages.map((p) => ({
             id: `page_${p.path}`,
             title: p.name,
             source: p.path,
-            type: 'page' as const
+            type: "page" as const,
           })),
-          ...searchResult.links.map(l => ({
-            id: `link_${Buffer.from(l.url).toString('base64').slice(0, 8)}`,
+          ...searchResult.links.map((l) => ({
+            id: `link_${Buffer.from(l.url).toString("base64").slice(0, 8)}`,
             title: l.title,
             source: l.source,
-            type: 'link' as const
-          }))
+            type: "link" as const,
+          })),
         ];
-        
+
         // Rerank all candidates together
-        const rerankResults = await rerankCandidates(params.query, candidates, maxResults);
-        
+        const rerankResults = await rerankCandidates(
+          params.query,
+          candidates,
+          maxResults,
+        );
+
         if (rerankResults.length > 0) {
           // Apply rerank results
           rerankedFiles = [];
           rerankedPages = [];
           rerankedLinks = [];
-          
+
           for (const result of rerankResults) {
-            if (result.id.startsWith('file_')) {
-              const fileId = result.id.replace('file_', '');
-              const file = enhancedFiles.find(f => f.fileId === fileId);
+            if (result.id.startsWith("file_")) {
+              const fileId = result.id.replace("file_", "");
+              const file = enhancedFiles.find((f) => f.fileId === fileId);
               if (file) {
                 rerankedFiles.push({ ...file, relevance: result.score });
               }
-            } else if (result.id.startsWith('page_')) {
-              const path = result.id.replace('page_', '');
-              const page = searchResult.pages.find(p => p.path === path);
+            } else if (result.id.startsWith("page_")) {
+              const path = result.id.replace("page_", "");
+              const page = searchResult.pages.find((p) => p.path === path);
               if (page) {
                 rerankedPages.push({ ...page, relevance: result.score });
               }
-            } else if (result.id.startsWith('link_')) {
-              const linkHash = result.id.replace('link_', '');
-              const link = searchResult.links.find(l => 
-                Buffer.from(l.url).toString('base64').slice(0, 8) === linkHash
+            } else if (result.id.startsWith("link_")) {
+              const linkHash = result.id.replace("link_", "");
+              const link = searchResult.links.find(
+                (l) =>
+                  Buffer.from(l.url).toString("base64").slice(0, 8) ===
+                  linkHash,
               );
               if (link) {
                 rerankedLinks.push({ ...link, relevance: result.score });
               }
             }
           }
-          
+
           wasReranked = true;
-          logger.info(`[Smart Search Tool] Reranked ${candidates.length} candidates to ${rerankResults.length} top results`);
+          logger.info(
+            `[Smart Search Tool] Reranked ${candidates.length} candidates to ${rerankResults.length} top results`,
+          );
         }
       } catch (error) {
-        logger.warn(`[Smart Search Tool] Reranking failed: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warn(
+          `[Smart Search Tool] Reranking failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
-    
+
     // NEW: Apply maxResults limit after reranking (or use original if no reranking)
     const limitedFiles = rerankedFiles.slice(0, maxResults);
     const limitedPages = rerankedPages.slice(0, maxResults);
     const limitedLinks = rerankedLinks.slice(0, maxResults);
-    
+
     const originalTotal = searchResult.totalResults;
-    const limitedTotal = limitedFiles.length + limitedPages.length + limitedLinks.length;
+    const limitedTotal =
+      limitedFiles.length + limitedPages.length + limitedLinks.length;
     const wasTruncated = limitedTotal < originalTotal;
-    
+
     // Generate suggestions based on results
     const suggestions = generateSearchSuggestions(params.query, {
       ...searchResult,
       files: limitedFiles,
       pages: limitedPages,
       links: limitedLinks,
-      totalResults: limitedTotal
+      totalResults: limitedTotal,
     });
-    
+
     const baseMetadata = {
       totalResults: limitedTotal,
       searchTime: searchResult.searchTime,
       extractionUsed: searchResult.extractionUsed,
-      discoveryMethod: stats.hasCache ? 'cached' : 'discovery',
-      apiRestrictions: stats.apiStatus === 'restricted' ? 'Some APIs restricted, using smart discovery' : undefined,
+      discoveryMethod: stats.hasCache ? "cached" : "discovery",
+      apiRestrictions:
+        stats.apiStatus === "restricted"
+          ? "Some APIs restricted, using smart discovery"
+          : undefined,
       truncated: wasTruncated,
-              mode: returnMode,
-        intent: intent,
-        reranked: wasReranked
+      mode: returnMode,
+      intent: intent,
+      reranked: wasReranked,
     };
-    
+
     // NEW: Return compact format for 'refs' mode
-    if (returnMode === 'refs') {
+    if (returnMode === "refs") {
       const citations: CompactCitation[] = [
-        ...limitedFiles.map(file => ({
+        ...limitedFiles.map((file) => ({
           id: `file_${file.fileId}`,
-          type: 'file' as const,
+          type: "file" as const,
           title: file.fileName,
           source: file.source,
           relevance: file.relevance,
-          canProcess: file.canProcess
+          canProcess: file.canProcess,
         })),
-        ...limitedPages.map(page => ({
+        ...limitedPages.map((page) => ({
           id: `page_${page.path}`,
-          type: 'page' as const,
+          type: "page" as const,
           title: page.name,
           source: page.path,
-          relevance: page.relevance
+          relevance: page.relevance,
         })),
-        ...limitedLinks.map(link => ({
-          id: `link_${Buffer.from(link.url).toString('base64').slice(0, 8)}`,
-          type: 'link' as const,
+        ...limitedLinks.map((link) => ({
+          id: `link_${Buffer.from(link.url).toString("base64").slice(0, 8)}`,
+          type: "link" as const,
           title: link.title,
           source: link.source,
-          relevance: link.relevance
-        }))
+          relevance: link.relevance,
+        })),
       ];
-      
+
       const result: CompactSearchResult = {
         success: true,
         query: params.query,
         courseInfo: {
           courseId: params.courseId,
-          courseName: params.courseName
+          courseName: params.courseName,
         },
         citations: citations.sort((a, b) => b.relevance - a.relevance),
         metadata: baseMetadata,
-        suggestions: suggestions.length > 0 ? suggestions.map(s => enforceTextBudget(s, 200)) : undefined
+        suggestions:
+          suggestions.length > 0
+            ? suggestions.map((s) => enforceTextBudget(s, 200))
+            : undefined,
       };
-      
-      logger.info(`[Smart Search Tool] Found ${result.citations.length} citations for "${params.query}" in ${result.metadata.searchTime}ms (compact mode)`);
+
+      logger.info(
+        `[Smart Search Tool] Found ${result.citations.length} citations for "${params.query}" in ${result.metadata.searchTime}ms (compact mode)`,
+      );
       return result;
     }
-    
+
     // Return full format for 'full' mode
     const result: SmartSearchResult = {
       success: true,
       query: params.query,
       courseInfo: {
         courseId: params.courseId,
-        courseName: params.courseName
+        courseName: params.courseName,
       },
       results: {
         files: limitedFiles,
         pages: limitedPages,
-        links: limitedLinks
+        links: limitedLinks,
       },
       metadata: baseMetadata,
-      suggestions: suggestions.length > 0 ? suggestions.map(s => enforceTextBudget(s, 200)) : undefined
+      suggestions:
+        suggestions.length > 0
+          ? suggestions.map((s) => enforceTextBudget(s, 200))
+          : undefined,
     };
-    
-    logger.info(`[Smart Search Tool] Found ${result.metadata.totalResults} results for "${params.query}" in ${result.metadata.searchTime}ms (full mode)`);
-    
+
+    logger.info(
+      `[Smart Search Tool] Found ${result.metadata.totalResults} results for "${params.query}" in ${result.metadata.searchTime}ms (full mode)`,
+    );
+
     return result;
-    
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error(`[Smart Search Tool] Search failed: ${errorMsg}`);
-    
+
     const errorResult = {
       success: false,
       query: params.query,
       courseInfo: {
         courseId: params.courseId,
-        courseName: params.courseName
+        courseName: params.courseName,
       },
       metadata: {
         totalResults: 0,
         searchTime: Date.now() - startTime,
         extractionUsed: false,
-        discoveryMethod: 'failed',
+        discoveryMethod: "failed",
         truncated: false,
-                  mode: returnMode,
-          intent: intent,
-          reranked: false
+        mode: returnMode,
+        intent: intent,
+        reranked: false,
       },
-      error: `Search failed: ${enforceTextBudget(errorMsg, 500)}`
+      error: `Search failed: ${enforceTextBudget(errorMsg, 500)}`,
     };
-    
-    return returnMode === 'refs' ? {
-      ...errorResult,
-      citations: []
-    } as CompactSearchResult : {
-      ...errorResult,
-      results: { files: [], pages: [], links: [] }
-    } as SmartSearchResult;
+
+    return returnMode === "refs"
+      ? ({
+          ...errorResult,
+          citations: [],
+        } as CompactSearchResult)
+      : ({
+          ...errorResult,
+          results: { files: [], pages: [], links: [] },
+        } as SmartSearchResult);
   }
 }
 
@@ -400,7 +451,7 @@ export async function getCourseContentOverview(
   courseId: string,
   canvasBaseUrl: string,
   accessToken: string,
-  forceRefresh = false
+  forceRefresh = false,
 ): Promise<{
   success: boolean;
   courseId: string;
@@ -429,32 +480,38 @@ export async function getCourseContentOverview(
   error?: string;
 }> {
   try {
-    logger.info(`[Smart Search Tool] Getting content overview for course ${courseId}`);
-    
+    logger.info(
+      `[Smart Search Tool] Getting content overview for course ${courseId}`,
+    );
+
     // Get current stats
-    const stats = await getExtractionStats(courseId, canvasBaseUrl, accessToken);
-    
+    const stats = await getExtractionStats(
+      courseId,
+      canvasBaseUrl,
+      accessToken,
+    );
+
     // If no cache or forced refresh, trigger extraction
     if (!stats.hasCache || forceRefresh) {
       const extraction = await extractCourseContent(
         courseId,
         canvasBaseUrl,
         accessToken,
-        { forceRefresh, useWebDiscovery: true }
+        { forceRefresh, useWebDiscovery: true },
       );
-      
+
       if (!extraction.success) {
         return {
           success: false,
           courseId,
           contentSummary: { totalFiles: 0, totalPages: 0, totalLinks: 0 },
-          apiStatus: { status: 'unknown', recommendsDiscovery: false },
+          apiStatus: { status: "unknown", recommendsDiscovery: false },
           topFiles: [],
           availablePages: [],
-          error: extraction.errors.join(', ')
+          error: extraction.errors.join(", "),
         };
       }
-      
+
       return {
         success: true,
         courseId,
@@ -462,30 +519,37 @@ export async function getCourseContentOverview(
           totalFiles: extraction.courseIndex.metadata.totalFiles,
           totalPages: extraction.courseIndex.metadata.totalPages,
           totalLinks: extraction.courseIndex.discoveredLinks.length,
-          lastScanned: extraction.courseIndex.lastScanned
+          lastScanned: extraction.courseIndex.lastScanned,
         },
         apiStatus: {
-          status: extraction.courseIndex.metadata.hasRestrictedAPIs ? 'restricted' : 'available',
+          status: extraction.courseIndex.metadata.hasRestrictedAPIs
+            ? "restricted"
+            : "available",
           restrictions: extraction.apiRestrictions?.summary,
-          recommendsDiscovery: extraction.method === 'web' || extraction.method === 'hybrid'
+          recommendsDiscovery:
+            extraction.method === "web" || extraction.method === "hybrid",
         },
-        topFiles: extraction.courseIndex.discoveredFiles.slice(0, 10).map(f => ({
-          fileId: f.fileId,
-          fileName: f.fileName,
-          source: f.source
-        })),
-        availablePages: extraction.courseIndex.discoveredPages.slice(0, 10).map(p => ({
-          name: p.name,
-          path: p.path,
-          accessible: p.accessible
-        }))
+        topFiles: extraction.courseIndex.discoveredFiles
+          .slice(0, 10)
+          .map((f) => ({
+            fileId: f.fileId,
+            fileName: f.fileName,
+            source: f.source,
+          })),
+        availablePages: extraction.courseIndex.discoveredPages
+          .slice(0, 10)
+          .map((p) => ({
+            name: p.name,
+            path: p.path,
+            accessible: p.accessible,
+          })),
       };
     }
-    
+
     // Use cached data
     const cacheAgeMs = stats.cacheAge || 0;
     const cacheAgeStr = formatDuration(cacheAgeMs);
-    
+
     return {
       success: true,
       courseId,
@@ -494,28 +558,27 @@ export async function getCourseContentOverview(
         totalPages: stats.contentCounts.pages,
         totalLinks: stats.contentCounts.links,
         lastScanned: stats.lastUpdate,
-        cacheAge: cacheAgeStr
+        cacheAge: cacheAgeStr,
       },
       apiStatus: {
         status: stats.apiStatus,
-        recommendsDiscovery: stats.apiStatus === 'restricted'
+        recommendsDiscovery: stats.apiStatus === "restricted",
       },
       topFiles: [],
-      availablePages: []
+      availablePages: [],
     };
-    
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error(`[Smart Search Tool] Overview failed: ${errorMsg}`);
-    
+
     return {
       success: false,
       courseId,
       contentSummary: { totalFiles: 0, totalPages: 0, totalLinks: 0 },
-      apiStatus: { status: 'error', recommendsDiscovery: false },
+      apiStatus: { status: "error", recommendsDiscovery: false },
       topFiles: [],
       availablePages: [],
-      error: `Overview failed: ${errorMsg}`
+      error: `Overview failed: ${errorMsg}`,
     };
   }
 }
@@ -529,13 +592,12 @@ export function clearContentCache(courseId?: string): {
 } {
   try {
     clearCourseCache(courseId);
-    const message = courseId 
+    const message = courseId
       ? `Cleared content cache for course ${courseId}`
-      : 'Cleared content cache for all courses';
-    
+      : "Cleared content cache for all courses";
+
     logger.info(`[Smart Search Tool] ${message}`);
     return { success: true, message };
-    
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error(`[Smart Search Tool] Cache clear failed: ${errorMsg}`);
@@ -549,18 +611,47 @@ export function clearContentCache(courseId?: string): {
 function canProcessFile(fileName: string): boolean {
   const supportedExtensions = [
     // Documents
-    'pdf', 'doc', 'docx', 'docm', 'dot', 'dotm', 'rtf', 'txt',
+    "pdf",
+    "doc",
+    "docx",
+    "docm",
+    "dot",
+    "dotm",
+    "rtf",
+    "txt",
     // Presentations
-    'ppt', 'pptx', 'pptm', 'pot', 'potm', 'potx',
+    "ppt",
+    "pptx",
+    "pptm",
+    "pot",
+    "potm",
+    "potx",
     // Spreadsheets
-    'xls', 'xlsx', 'xlsm', 'xlsb', 'csv',
+    "xls",
+    "xlsx",
+    "xlsm",
+    "xlsb",
+    "csv",
     // Images
-    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "bmp",
+    "svg",
+    "tiff",
+    "webp",
     // Audio
-    'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'
+    "mp3",
+    "mp4",
+    "mpeg",
+    "mpga",
+    "m4a",
+    "wav",
+    "webm",
   ];
-  
-  const extension = fileName.toLowerCase().split('.').pop() || '';
+
+  const extension = fileName.toLowerCase().split(".").pop() || "";
   return supportedExtensions.includes(extension);
 }
 
@@ -569,23 +660,31 @@ function canProcessFile(fileName: string): boolean {
  */
 function generateSearchSuggestions(query: string, searchResult: any): string[] {
   const suggestions: string[] = [];
-  
+
   // If no results, suggest broader terms
   if (searchResult.totalResults === 0) {
-    suggestions.push('Try broader search terms like "lecture", "notes", or "slides"');
-    suggestions.push('Check if the course has restricted APIs by viewing course overview');
+    suggestions.push(
+      'Try broader search terms like "lecture", "notes", or "slides"',
+    );
+    suggestions.push(
+      "Check if the course has restricted APIs by viewing course overview",
+    );
   }
-  
+
   // If many files found, suggest refinement
   if (searchResult.files.length > 10) {
-    suggestions.push('Many files found - try more specific terms to narrow results');
+    suggestions.push(
+      "Many files found - try more specific terms to narrow results",
+    );
   }
-  
+
   // Suggest common academic terms if current query is very short
   if (query.length < 4) {
-    suggestions.push('Try specific topics like "uncertainty", "quantum", "optics"');
+    suggestions.push(
+      'Try specific topics like "uncertainty", "quantum", "optics"',
+    );
   }
-  
+
   return suggestions;
 }
 
@@ -597,9 +696,9 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
-  if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-  if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-  return `${seconds} second${seconds > 1 ? 's' : ''} ago`;
-} 
+
+  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  return `${seconds} second${seconds > 1 ? "s" : ""} ago`;
+}

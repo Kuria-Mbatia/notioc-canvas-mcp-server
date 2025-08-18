@@ -7,24 +7,24 @@
  */
 export const logger = {
   log: (...args: any[]) => {
-    console.error('[MCP INFO]', ...args);
+    console.error("[MCP INFO]", ...args);
   },
 
   info: (...args: any[]) => {
-    console.error('[MCP INFO]', ...args);
+    console.error("[MCP INFO]", ...args);
   },
-  
+
   warn: (...args: any[]) => {
-    console.error('[MCP WARN]', ...args);
+    console.error("[MCP WARN]", ...args);
   },
-  
+
   error: (...args: any[]) => {
-    console.error('[MCP ERROR]', ...args);
+    console.error("[MCP ERROR]", ...args);
   },
-  
+
   debug: (...args: any[]) => {
     if (process.env.DEBUG) {
-      console.error('[MCP DEBUG]', ...args);
+      console.error("[MCP DEBUG]", ...args);
     }
-  }
+  },
 };

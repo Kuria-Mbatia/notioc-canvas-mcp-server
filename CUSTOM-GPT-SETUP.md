@@ -10,6 +10,7 @@ While waiting for Custom GPT integration, we recommend using Claude Desktop with
 2. See [CLAUDE-SETUP.md](./CLAUDE-SETUP.md) for detailed Claude Desktop setup
 
 Claude Desktop offers several advantages:
+
 - Local processing for enhanced privacy
 - Direct MCP integration
 - No need for cloud deployment
@@ -18,6 +19,7 @@ Claude Desktop offers several advantages:
 ## Future Custom GPT Features
 
 When the Custom GPT integration is available, you'll be able to:
+
 - 📚 **Get your courses**: "Show me my Canvas courses"
 - 📄 **Browse pages**: "What pages are in my English course?"
 - 💬 **Read discussions**: "Check the latest announcements in my course"
@@ -57,14 +59,14 @@ While we develop the Custom GPT integration, here's how to get started with Clau
 
 ## Feature Comparison
 
-| Feature | Claude Desktop | Custom GPT (Future) |
-|---------|---------------|-------------------|
-| Privacy | Local processing | Cloud-based API |
-| Setup | Configuration file | Web-based interface |
-| Deployment | Local only | Cloud required |
-| Cost | Claude subscription | ChatGPT Plus subscription |
-| API Keys | Stored locally | Stored in GPT configuration |
-| File Size Support | Limited by Claude | Limited by GPT |
+| Feature           | Claude Desktop      | Custom GPT (Future)         |
+| ----------------- | ------------------- | --------------------------- |
+| Privacy           | Local processing    | Cloud-based API             |
+| Setup             | Configuration file  | Web-based interface         |
+| Deployment        | Local only          | Cloud required              |
+| Cost              | Claude subscription | ChatGPT Plus subscription   |
+| API Keys          | Stored locally      | Stored in GPT configuration |
+| File Size Support | Limited by Claude   | Limited by GPT              |
 
 ## Security Considerations
 
