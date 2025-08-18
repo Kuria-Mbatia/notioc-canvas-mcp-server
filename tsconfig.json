@@ -12,8 +12,12 @@
     "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["src/**/*", "lib/**/*", "tools/**/*", "mcp.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "include": ["src/**/*", "lib/**/*", "tools/**/*", "mcp.ts", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
