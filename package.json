@@ -24,8 +24,7 @@
     "start": "node dist/src/server.js",
     "dev": "node dist/src/server.js",
     "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "mcp",
