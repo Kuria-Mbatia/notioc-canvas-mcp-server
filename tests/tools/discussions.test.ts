@@ -1,10 +1,5 @@
-import { expect, test } from "vitest";
-import * as discussions from "../../src/tools/discussions.js";
-
-// Import all functions and types from the discussions module
-const {
-  PostDiscussionReplyParams,
+import { expect, test, describe } from "vitest";
+import {
   postDiscussionReply,
   replyToDiscussionEntry,
-  // Add other exports as needed
-} = discussions;
+} from "@/tools/discussions";

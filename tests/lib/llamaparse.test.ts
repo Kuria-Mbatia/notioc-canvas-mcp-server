@@ -1,10 +1,6 @@
-import { expect, test } from "vitest";
-import * as llamaparse from "../../src/lib/llamaparse.js";
-
-// Import all functions and types from the llamaparse module
-const {
+import { expect, test, describe } from "vitest";
+import {
   parsePDFWithLlamaParse,
   extractTextFromPDF,
   parseDocument,
-  // Add other exports as needed
-} = llamaparse;
+} from "@/lib/llamaparse";

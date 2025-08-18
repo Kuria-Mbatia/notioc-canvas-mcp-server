@@ -1,17 +1,7 @@
-import { expect, test } from "vitest";
-import * as pagesDiscussions from "../../src/tools/pages-discussions.js";
-
-// Import all functions and types from the pages-discussions module
-const {
-  PagesListParams,
-  PageContentParams,
-  DiscussionsListParams,
-  DiscussionContentParams,
-  PageInfo,
-  DiscussionInfo,
+import { expect, test, describe } from "vitest";
+import {
   listPages,
   getPageContent,
   listDiscussions,
   getDiscussionContent,
-  // Add other exports as needed
-} = pagesDiscussions;
+} from "@/tools/pages-discussions";

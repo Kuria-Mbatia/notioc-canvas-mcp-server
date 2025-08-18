@@ -1,11 +1,7 @@
-import { expect, test } from "vitest";
-import * as fileCache from "../../src/lib/file-cache.js";
-
-// Import all functions and types from the file-cache module
-const {
+import { expect, test, describe } from "vitest";
+import {
   getCachedFile,
   setCachedFile,
   clearFileCache,
   getCacheStats,
-  // Add other exports as needed
-} = fileCache;
+} from "@/lib/file-cache";

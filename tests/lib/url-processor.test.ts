@@ -1,14 +1,8 @@
-import { expect, test } from "vitest";
-import * as urlProcessor from "../../src/lib/url-processor.js";
-
-// Import all functions and types from the url-processor module
-const {
-  CanvasURLInfo,
-  URLProcessingResult,
+import { expect, test, describe } from "vitest";
+import {
   parseCanvasURL,
   webUrlToApiUrl,
   extractFileIdsFromHTML,
   extractLinksFromHTML,
   validateCanvasURL,
-  // Add other exports as needed
-} = urlProcessor;
+} from "@/lib/url-processor";

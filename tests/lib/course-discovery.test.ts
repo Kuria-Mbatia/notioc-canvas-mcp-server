@@ -1,12 +1,6 @@
-import { expect, test } from "vitest";
-import * as courseDiscovery from "../../src/lib/course-discovery.js";
-
-// Import all functions and types from the course-discovery module
-const {
-  CourseAPIAvailability,
-  APIEndpointStatus,
-  CANVAS_API_ENDPOINTS,
+import { expect, test, describe } from "vitest";
+import {
   getCachedDiscovery,
   setCachedDiscovery,
-  // Add other exports as needed
-} = courseDiscovery;
+  CANVAS_API_ENDPOINTS,
+} from "@/lib/course-discovery";

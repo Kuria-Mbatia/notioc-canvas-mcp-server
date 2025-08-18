@@ -1,11 +1,5 @@
-import { expect, test } from "vitest";
-import * as previousSubmissions from "../../src/tools/previous-submissions.js";
-
-// Import all functions and types from the previous-submissions module
-const {
+import { expect, test, describe } from "vitest";
+import {
   getPreviousSubmissions,
   getSubmissionHistory,
-  SubmissionParams,
-  SubmissionInfo,
-  // Add other exports as needed
-} = previousSubmissions;
+} from "@/tools/previous-submissions";

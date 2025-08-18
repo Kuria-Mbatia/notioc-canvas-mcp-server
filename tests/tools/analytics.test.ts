@@ -1,16 +1,6 @@
-import { expect, test } from "vitest";
-import * as analytics from "../../src/tools/analytics.js";
-
-// Import all functions and types from the analytics module
-const {
-  CourseAnalyticsParams,
-  WhatIfScenarioParams,
-  GradeTrendsParams,
-  CourseAnalyticsInfo,
-  WhatIfScenarioInfo,
-  GradeTrendsInfo,
+import { expect, test, describe } from "vitest";
+import {
   calculateCourseAnalytics,
   generateWhatIfScenarios,
   getGradeTrends,
-  // Add other exports as needed
-} = analytics;
+} from "@/tools/analytics";
