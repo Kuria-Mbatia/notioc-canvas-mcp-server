@@ -34,8 +34,10 @@ describe("Quizzes Tool", () => {
         title: "Chapter 1 Quiz",
         description: "Quiz on chapter 1 material",
         html_url: "https://test.instructure.com/courses/12345/quizzes/1",
-        mobile_url: "https://test.instructure.com/courses/12345/quizzes/1?force_user=1",
-        preview_url: "https://test.instructure.com/courses/12345/quizzes/1/preview",
+        mobile_url:
+          "https://test.instructure.com/courses/12345/quizzes/1?force_user=1",
+        preview_url:
+          "https://test.instructure.com/courses/12345/quizzes/1/preview",
         quiz_type: "assignment",
         assignment_group_id: 101,
         time_limit: 60,
@@ -73,7 +75,11 @@ describe("Quizzes Tool", () => {
         lock_explanation: "This quiz is locked until the due date",
         points_possible: 100,
         question_count: 25,
-        question_types: ["multiple_choice_question", "essay_question", "short_answer_question"],
+        question_types: [
+          "multiple_choice_question",
+          "essay_question",
+          "short_answer_question",
+        ],
         has_access_code: true,
         post_to_sis: true,
       },

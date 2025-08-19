@@ -40,7 +40,8 @@ describe("Calendar Tool", () => {
         start_at: "2024-03-20T14:00:00Z",
         end_at: "2024-03-20T15:00:00Z",
         type: "event" as const,
-        html_url: "https://test.instructure.com/courses/12345/calendar_events/2",
+        html_url:
+          "https://test.instructure.com/courses/12345/calendar_events/2",
         context_code: "course_12345",
       },
     ];
@@ -187,7 +188,8 @@ describe("Calendar Tool", () => {
           start_at: "2024-04-01T09:00:00Z",
           end_at: "2024-04-01T10:00:00Z",
           type: "event" as const,
-          html_url: "https://test.instructure.com/courses/67890/calendar_events/3",
+          html_url:
+            "https://test.instructure.com/courses/67890/calendar_events/3",
           context_code: "course_67890",
         },
       ];
@@ -271,7 +273,8 @@ describe("Calendar Tool", () => {
           start_at: "2024-05-15T08:30:00Z",
           end_at: "2024-05-15T09:30:00Z",
           type: "assignment" as const,
-          html_url: "https://test.instructure.com/courses/12345/assignments/999",
+          html_url:
+            "https://test.instructure.com/courses/12345/assignments/999",
           context_code: "course_12345",
         },
       ];

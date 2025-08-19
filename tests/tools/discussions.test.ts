@@ -1,9 +1,8 @@
 import { expect, test, describe, vi, beforeEach } from "vitest";
 import {
-  listDiscussions,
-  getDiscussionDetails,
-  type ListDiscussionsParams,
-  type DiscussionDetailsParams,
+  postDiscussionReply,
+  replyToDiscussionEntry,
+  type PostDiscussionReplyParams,
 } from "@/tools/discussions";
 import * as coursesModule from "@/tools/courses";
 
@@ -25,56 +24,13 @@ describe("Discussions Tool", () => {
     vi.clearAllMocks();
   });
 
-  describe("listDiscussions", () => {
-    test("lists discussions for course", async () => {
-      const params: ListDiscussionsParams = {
+  describe("postDiscussionReply", () => {
+    test("posts a reply to a discussion topic", async () => {
+      const params: PostDiscussionReplyParams = {
         ...mockParams,
         courseId: "12345",
-      };
-
-      const mockCourses = [
-        { id: "12345", name: "Test Course", courseCode: "TEST101" },
-      ];
-
-      mockListCourses.mockResolvedValue(mockCourses);
-
-      const mockFetchAllPaginated = await import("@/lib/pagination");
-      vi.mocked(mockFetchAllPaginated.fetchAllPaginated).mockResolvedValue([
-        {
-          id: 1,
-          title: "Welcome Discussion",
-          message: "Welcome to the course!",
-          discussion_type: "side_comment",
-          published: true,
-          reply_count: 5,
-          unread_count: 2,
-        },
-      ]);
-
-      const result = await listDiscussions(params);
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThanOrEqual(0);
-    });
-
-    test("handles missing required parameters", async () => {
-      const params = {
-        canvasBaseUrl: "",
-        accessToken: "test-token",
-      };
-
-      await expect(listDiscussions(params)).rejects.toThrow(
-        "Missing Canvas URL or Access Token",
-      );
-    });
-  });
-
-  describe("getDiscussionDetails", () => {
-    test("gets discussion details", async () => {
-      const params: DiscussionDetailsParams = {
-        ...mockParams,
-        courseId: "12345",
-        discussionId: "1",
+        topicId: "1",
+        message: "This is a test reply",
       };
 
       const mockCourses = [
@@ -87,28 +43,108 @@ describe("Discussions Tool", () => {
       vi.mocked(mockCallCanvasAPI.callCanvasAPI).mockResolvedValue({
         ok: true,
         json: async () => ({
-          id: 1,
-          title: "Welcome Discussion",
-          message: "Welcome to the course!",
-          published: true,
+          id: "123",
+          message: "This is a test reply",
+          created_at: "2024-01-15T10:00:00Z",
+          user_id: "456",
+          user_name: "Test User",
         }),
       } as any);
 
-      const result = await getDiscussionDetails(params);
+      const result = await postDiscussionReply(params);
 
       expect(result).toBeDefined();
-      expect(typeof result).toBe("object");
+      expect(result.id).toBe("123");
+      expect(result.message).toBe("This is a test reply");
     });
 
-    test("handles missing discussion ID", async () => {
-      const params: DiscussionDetailsParams = {
-        ...mockParams,
-        courseId: "12345",
-        discussionId: "",
+    test("handles missing required parameters", async () => {
+      const params = {
+        canvasBaseUrl: "",
+        accessToken: "test-token",
+        topicId: "1",
+        message: "Test message",
       };
 
-      await expect(getDiscussionDetails(params)).rejects.toThrow(
-        "discussionId is required",
+      await expect(postDiscussionReply(params)).rejects.toThrow(
+        "Missing Canvas URL or Access Token",
+      );
+    });
+
+    test("handles missing topic ID", async () => {
+      const params: PostDiscussionReplyParams = {
+        ...mockParams,
+        courseId: "12345",
+        topicId: "",
+        message: "Test message",
+      };
+
+      await expect(postDiscussionReply(params)).rejects.toThrow(
+        "Both topicId and message are required",
+      );
+    });
+
+    test("handles missing message", async () => {
+      const params: PostDiscussionReplyParams = {
+        ...mockParams,
+        courseId: "12345",
+        topicId: "1",
+        message: "",
+      };
+
+      await expect(postDiscussionReply(params)).rejects.toThrow(
+        "Both topicId and message are required",
+      );
+    });
+  });
+
+  describe("replyToDiscussionEntry", () => {
+    test("posts a threaded reply to a discussion entry", async () => {
+      const params = {
+        ...mockParams,
+        courseId: "12345",
+        topicId: "1",
+        parentEntryId: "456",
+        message: "This is a threaded reply",
+      };
+
+      const mockCourses = [
+        { id: "12345", name: "Test Course", courseCode: "TEST101" },
+      ];
+
+      mockListCourses.mockResolvedValue(mockCourses);
+
+      const mockCallCanvasAPI = await import("@/lib/canvas-api");
+      vi.mocked(mockCallCanvasAPI.callCanvasAPI).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: "789",
+          message: "This is a threaded reply",
+          created_at: "2024-01-15T10:00:00Z",
+          user_id: "123",
+          user_name: "Test User",
+        }),
+      } as any);
+
+      const result = await replyToDiscussionEntry(params);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe("789");
+      expect(result.message).toBe("This is a threaded reply");
+      expect(result.parentId).toBe("456");
+    });
+
+    test("handles missing parent entry ID", async () => {
+      const params = {
+        ...mockParams,
+        courseId: "12345",
+        topicId: "1",
+        parentEntryId: "",
+        message: "Test message",
+      };
+
+      await expect(replyToDiscussionEntry(params)).rejects.toThrow(
+        "topicId, parentEntryId, and message are all required",
       );
     });
   });

@@ -152,7 +152,7 @@ describe("Dashboard Tool", () => {
       expect(result.upcomingAssignments).toHaveLength(2);
       expect(result.upcomingAssignments[0].name).toBe("Physics Lab 1"); // Closer due date
       expect(result.upcomingAssignments[1].name).toBe("Math Homework 1");
-      
+
       // Should include course names
       expect(result.upcomingAssignments[0].courseName).toBe("Physics 201");
       expect(result.upcomingAssignments[1].courseName).toBe("Math 101");
@@ -204,11 +204,15 @@ describe("Dashboard Tool", () => {
 
       expect(result.upcomingAssignments[0]).toHaveProperty("courseName");
       expect(result.unreadAnnouncements[0]).toHaveProperty("courseName");
-      
-      const mathAssignment = result.upcomingAssignments.find(a => a.name === "Math Homework 1");
+
+      const mathAssignment = result.upcomingAssignments.find(
+        (a) => a.name === "Math Homework 1",
+      );
       expect(mathAssignment?.courseName).toBe("Math 101");
-      
-      const mathAnnouncement = result.unreadAnnouncements.find(a => a.title === "Math Class Update");
+
+      const mathAnnouncement = result.unreadAnnouncements.find(
+        (a) => a.title === "Math Class Update",
+      );
       expect(mathAnnouncement?.courseName).toBe("Math 101");
     });
 

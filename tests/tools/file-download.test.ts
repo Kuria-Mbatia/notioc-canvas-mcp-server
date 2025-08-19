@@ -58,7 +58,8 @@ describe("File Download Tool", () => {
     test("extracts file ID from submission URL", async () => {
       const params: CanvasFileDownloadParams = {
         ...mockParams,
-        submissionUrl: "https://test.instructure.com/courses/123/assignments/456/submissions/789?download=12345",
+        submissionUrl:
+          "https://test.instructure.com/courses/123/assignments/456/submissions/789?download=12345",
       };
 
       const mockCallCanvasAPI = await import("@/lib/canvas-api");
@@ -227,7 +228,8 @@ describe("File Download Tool", () => {
     test("throws error when submission URL has no download parameter", async () => {
       const params: CanvasFileDownloadParams = {
         ...mockParams,
-        submissionUrl: "https://test.instructure.com/courses/123/assignments/456/submissions/789",
+        submissionUrl:
+          "https://test.instructure.com/courses/123/assignments/456/submissions/789",
       };
 
       await expect(downloadSubmissionFile(params)).rejects.toThrow(

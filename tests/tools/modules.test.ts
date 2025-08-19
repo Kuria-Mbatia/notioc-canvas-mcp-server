@@ -35,7 +35,8 @@ describe("Modules Tool", () => {
         require_sequential_progress: false,
         prerequisite_module_ids: [],
         items_count: 3,
-        items_url: "https://test.instructure.com/api/v1/courses/12345/modules/1/items",
+        items_url:
+          "https://test.instructure.com/api/v1/courses/12345/modules/1/items",
         state: "completed",
         completed_at: "2024-01-15T10:00:00Z",
         publish_final_grade: false,
@@ -49,7 +50,8 @@ describe("Modules Tool", () => {
         require_sequential_progress: true,
         prerequisite_module_ids: [1],
         items_count: 5,
-        items_url: "https://test.instructure.com/api/v1/courses/12345/modules/2/items",
+        items_url:
+          "https://test.instructure.com/api/v1/courses/12345/modules/2/items",
         state: "started",
         completed_at: null,
         publish_final_grade: false,
@@ -105,7 +107,9 @@ describe("Modules Tool", () => {
       mockListCourses.mockResolvedValue(mockCourses);
 
       const mockFindBestMatch = await import("@/lib/search");
-      vi.mocked(mockFindBestMatch.findBestMatch).mockReturnValue(mockCourses[0]);
+      vi.mocked(mockFindBestMatch.findBestMatch).mockReturnValue(
+        mockCourses[0],
+      );
 
       const mockFetchAllPaginated = await import("@/lib/pagination");
       vi.mocked(mockFetchAllPaginated.fetchAllPaginated).mockResolvedValue(

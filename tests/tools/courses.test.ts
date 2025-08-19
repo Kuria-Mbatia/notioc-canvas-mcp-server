@@ -71,7 +71,7 @@ describe("Courses Tool", () => {
 
       expect(result).toHaveLength(4); // All courses have names after fallback
       // Find the Math course (might not be first due to sorting)
-      const mathCourse = result.find(c => c.courseCode === "MATH101");
+      const mathCourse = result.find((c) => c.courseCode === "MATH101");
       expect(mathCourse).toEqual({
         id: "1",
         name: "Mathematics 101",
@@ -277,7 +277,8 @@ describe("Courses Tool", () => {
 
     test("fetches course syllabus successfully", async () => {
       const mockSyllabusData = {
-        syllabus_body: "<h1>Course Syllabus</h1><p>This is the syllabus content.</p>",
+        syllabus_body:
+          "<h1>Course Syllabus</h1><p>This is the syllabus content.</p>",
         html_url: "https://test.instructure.com/courses/12345",
       };
 

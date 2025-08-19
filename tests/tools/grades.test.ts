@@ -62,7 +62,8 @@ describe("Grades Tool", () => {
           submission_type: "online_text_entry",
           workflow_state: "graded",
           graded_at: "2024-01-15T10:00:00Z",
-          html_url: "https://test.instructure.com/courses/12345/assignments/1/submissions/self",
+          html_url:
+            "https://test.instructure.com/courses/12345/assignments/1/submissions/self",
         },
       },
     ];
@@ -115,7 +116,7 @@ describe("Grades Tool", () => {
       },
       {
         id: 2,
-        name: "Quizzes", 
+        name: "Quizzes",
         weight: 25,
         position: 2,
         group_weight: null,

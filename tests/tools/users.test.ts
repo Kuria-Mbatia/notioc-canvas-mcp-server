@@ -84,7 +84,11 @@ describe("Users Tool", () => {
         mockParams.canvasBaseUrl,
         mockParams.accessToken,
         "/api/v1/courses/12345/users",
-        { per_page: "100", enrollment_state: "active", include: ["enrollments", "avatar_url"] },
+        {
+          per_page: "100",
+          enrollment_state: "active",
+          include: ["enrollments", "avatar_url"],
+        },
       );
 
       expect(result).toHaveLength(2);

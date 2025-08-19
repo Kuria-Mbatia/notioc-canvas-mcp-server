@@ -30,7 +30,8 @@ describe("Assignments Tool", () => {
       {
         id: 1,
         name: "Assignment 1",
-        description: "Test assignment with <a href='/files/123'>attached file</a>",
+        description:
+          "Test assignment with <a href='/files/123'>attached file</a>",
         due_at: "2024-12-31T23:59:00Z",
         points_possible: 100,
         submission_types: ["online_text_entry"],
@@ -304,8 +305,7 @@ describe("Assignments Tool", () => {
       const result = await getAssignmentDetails({
         canvasBaseUrl: "",
         accessToken: mockParams.accessToken,
-        fullUrl:
-          "https://test.instructure.com/courses/12345/assignments/1",
+        fullUrl: "https://test.instructure.com/courses/12345/assignments/1",
       });
 
       expect(result.id).toBe("1");
@@ -345,7 +345,9 @@ describe("Assignments Tool", () => {
           courseId: mockParams.courseId,
           assignmentName: "Nonexistent Assignment",
         }),
-      ).rejects.toThrow('Could not find assignment matching "Nonexistent Assignment"');
+      ).rejects.toThrow(
+        'Could not find assignment matching "Nonexistent Assignment"',
+      );
     });
 
     test("throws error when no identifier provided", async () => {

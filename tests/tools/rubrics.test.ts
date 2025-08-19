@@ -1,8 +1,5 @@
 import { expect, test, describe, vi, beforeEach } from "vitest";
-import {
-  getAssignmentRubric,
-  type RubricParams,
-} from "@/tools/rubrics";
+import { getAssignmentRubric, type RubricParams } from "@/tools/rubrics";
 import * as coursesModule from "@/tools/courses";
 
 // Mock dependencies

@@ -1,5 +1,8 @@
 import { expect, test, describe, vi, beforeEach } from "vitest";
-import { processCanvasURL, type ProcessCanvasURLParams } from "@/tools/url-processor";
+import {
+  processCanvasURL,
+  type ProcessCanvasURLParams,
+} from "@/tools/url-processor";
 
 // Mock dependencies
 vi.mock("@/lib/url-processor");
@@ -34,16 +37,27 @@ describe("URL Processor Tool", () => {
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([
-        { fileId: "file123", fileName: "document.pdf", url: "https://test.instructure.com/files/file123" },
+        {
+          fileId: "file123",
+          fileName: "document.pdf",
+          url: "https://test.instructure.com/files/file123",
+        },
       ]);
       vi.mocked(mockUrlProcessor.extractLinksFromHTML).mockReturnValue([
-        { title: "External Link", url: "https://example.com", type: "external" },
+        {
+          title: "External Link",
+          url: "https://example.com",
+          type: "external",
+        },
       ]);
 
       const result = await processCanvasURL(params);
 
       expect(mockUrlProcessor.parseCanvasURL).toHaveBeenCalledWith(params.url);
-      expect(mockUrlProcessor.validateCanvasURL).toHaveBeenCalledWith(params.url, params.accessToken);
+      expect(mockUrlProcessor.validateCanvasURL).toHaveBeenCalledWith(
+        params.url,
+        params.accessToken,
+      );
 
       expect(result.type).toBe("assignment");
       expect(result.courseId).toBe("12345");
@@ -188,11 +202,23 @@ describe("URL Processor Tool", () => {
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([
-        { fileId: "file1", fileName: "doc1.pdf", url: "https://test.instructure.com/files/file1" },
-        { fileId: "file2", fileName: "doc2.docx", url: "https://test.instructure.com/files/file2" },
+        {
+          fileId: "file1",
+          fileName: "doc1.pdf",
+          url: "https://test.instructure.com/files/file1",
+        },
+        {
+          fileId: "file2",
+          fileName: "doc2.docx",
+          url: "https://test.instructure.com/files/file2",
+        },
       ]);
       vi.mocked(mockUrlProcessor.extractLinksFromHTML).mockReturnValue([
-        { title: "External Resource", url: "https://example.com", type: "external" },
+        {
+          title: "External Resource",
+          url: "https://example.com",
+          type: "external",
+        },
       ]);
 
       const mockGetPageContent = await import("@/tools/pages-discussions");
