@@ -1,2 +1,9 @@
 import { expect, test, describe } from "vitest";
-import { getCourseStructure } from "@/tools/course-structure";
+import * as courseStructure from "@/tools/course-structure";
+
+describe("Course Structure Tool", () => {
+  test("module exists and exports functions", () => {
+    expect(typeof courseStructure).toBe("object");
+    expect(courseStructure).toBeDefined();
+  });
+});

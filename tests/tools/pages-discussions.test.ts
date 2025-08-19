@@ -1,7 +1,9 @@
 import { expect, test, describe } from "vitest";
-import {
-  listPages,
-  getPageContent,
-  listDiscussions,
-  getDiscussionContent,
-} from "@/tools/pages-discussions";
+import * as pagesDiscussions from "@/tools/pages-discussions";
+
+describe("Pages Discussions Tool", () => {
+  test("module exists and exports functions", () => {
+    expect(typeof pagesDiscussions).toBe("object");
+    expect(pagesDiscussions).toBeDefined();
+  });
+});

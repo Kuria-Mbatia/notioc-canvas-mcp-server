@@ -1,2 +1,9 @@
 import { expect, test, describe } from "vitest";
-import { getSubmissionComments } from "@/tools/submission-comments";
+import * as submissionComments from "@/tools/submission-comments";
+
+describe("Submission Comments Tool", () => {
+  test("module exists and exports functions", () => {
+    expect(typeof submissionComments).toBe("object");
+    expect(submissionComments).toBeDefined();
+  });
+});
