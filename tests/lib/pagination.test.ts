@@ -55,7 +55,7 @@ describe("pagination", () => {
       const results = await fetchAllPaginated(
         testBaseUrl,
         testAccessToken,
-        testApiPath
+        testApiPath,
       );
 
       expect(results).toEqual(mockData);
@@ -93,7 +93,9 @@ describe("pagination", () => {
 
       // Mock parseLinkHeader for first call
       mockParseLinkHeader.mockReturnValueOnce({
-        next: { url: "https://test.instructure.com/api/v1/courses/123/assignments?page=2" },
+        next: {
+          url: "https://test.instructure.com/api/v1/courses/123/assignments?page=2",
+        },
       });
 
       // Second call - page 2
@@ -108,7 +110,7 @@ describe("pagination", () => {
       const results = await fetchAllPaginated(
         testBaseUrl,
         testAccessToken,
-        testApiPath
+        testApiPath,
       );
 
       expect(results).toEqual([...page1Data, ...page2Data]);
@@ -126,7 +128,12 @@ describe("pagination", () => {
         headers: { get: () => null },
       });
 
-      await fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath, params);
+      await fetchAllPaginated(
+        testBaseUrl,
+        testAccessToken,
+        testApiPath,
+        params,
+      );
 
       expect(mockCallCanvasAPI).toHaveBeenCalledWith({
         canvasBaseUrl: testBaseUrl,
@@ -140,13 +147,14 @@ describe("pagination", () => {
       mockCallCanvasAPI.mockResolvedValue({
         ok: false,
         status: 404,
-        text: () => Promise.resolve("The resource has been disabled for this course"),
+        text: () =>
+          Promise.resolve("The resource has been disabled for this course"),
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
       ).rejects.toThrow(
-        "Canvas API Error (404): The requested resource has been disabled for this course"
+        "Canvas API Error (404): The requested resource has been disabled for this course",
       );
     });
 
@@ -158,9 +166,9 @@ describe("pagination", () => {
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
       ).rejects.toThrow(
-        "Canvas API Error (404): The requested resource was not found or is not accessible"
+        "Canvas API Error (404): The requested resource was not found or is not accessible",
       );
     });
 
@@ -172,9 +180,9 @@ describe("pagination", () => {
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
       ).rejects.toThrow(
-        "Canvas API Error (401): Invalid or expired access token"
+        "Canvas API Error (401): Invalid or expired access token",
       );
     });
 
@@ -186,9 +194,9 @@ describe("pagination", () => {
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
       ).rejects.toThrow(
-        "Canvas API Error (403): Access denied - insufficient permissions"
+        "Canvas API Error (403): Access denied - insufficient permissions",
       );
     });
 
@@ -200,10 +208,8 @@ describe("pagination", () => {
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
-      ).rejects.toThrow(
-        "Canvas API Error (500): Internal Server Error"
-      );
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
+      ).rejects.toThrow("Canvas API Error (500): Internal Server Error");
     });
 
     test("should handle Arabic text in disabled resource error", async () => {
@@ -214,9 +220,9 @@ describe("pagination", () => {
       });
 
       await expect(
-        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath)
+        fetchAllPaginated(testBaseUrl, testAccessToken, testApiPath),
       ).rejects.toThrow(
-        "Canvas API Error (404): The requested resource has been disabled for this course"
+        "Canvas API Error (404): The requested resource has been disabled for this course",
       );
     });
 
@@ -230,7 +236,7 @@ describe("pagination", () => {
       const results = await fetchAllPaginated(
         testBaseUrl,
         testAccessToken,
-        testApiPath
+        testApiPath,
       );
 
       expect(results).toEqual([]);
@@ -246,8 +252,8 @@ describe("pagination", () => {
       // Setup mocks for each page
       pages.forEach((pageData, index) => {
         const isLastPage = index === pages.length - 1;
-        const nextPageUrl = isLastPage 
-          ? null 
+        const nextPageUrl = isLastPage
+          ? null
           : `https://test.instructure.com/api/v1/courses/123/assignments?page=${index + 2}`;
 
         mockCallCanvasAPI.mockResolvedValueOnce({
@@ -273,11 +279,15 @@ describe("pagination", () => {
       const results = await fetchAllPaginated(
         testBaseUrl,
         testAccessToken,
-        testApiPath
+        testApiPath,
       );
 
       expect(results).toEqual([
-        { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }
+        { id: 1 },
+        { id: 2 },
+        { id: 3 },
+        { id: 4 },
+        { id: 5 },
       ]);
       expect(mockCallCanvasAPI).toHaveBeenCalledTimes(3);
     });
@@ -360,7 +370,8 @@ describe("pagination", () => {
       const discussion: CanvasDiscussion = {
         id: 101,
         title: "Week 1 Discussion",
-        html_url: "https://test.instructure.com/courses/123/discussion_topics/101",
+        html_url:
+          "https://test.instructure.com/courses/123/discussion_topics/101",
         posted_at: "2023-01-01T00:00:00Z",
         last_reply_at: "2023-01-03T12:00:00Z",
         discussion_type: "threaded",

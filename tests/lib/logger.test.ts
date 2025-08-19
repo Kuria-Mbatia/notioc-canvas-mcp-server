@@ -2,7 +2,9 @@ import { expect, test, describe, vi, beforeEach, afterEach } from "vitest";
 import { logger } from "@/lib/logger";
 
 // Mock console.error to capture logger output
-const mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+const mockConsoleError = vi
+  .spyOn(console, "error")
+  .mockImplementation(() => {});
 
 describe("logger", () => {
   beforeEach(() => {
@@ -23,7 +25,7 @@ describe("logger", () => {
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP INFO]",
         "Test message",
-        { data: "value" }
+        { data: "value" },
       );
     });
 
@@ -35,7 +37,7 @@ describe("logger", () => {
         "Message",
         123,
         true,
-        null
+        null,
       );
     });
 
@@ -52,21 +54,21 @@ describe("logger", () => {
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP INFO]",
-        "Information message"
+        "Information message",
       );
     });
 
     test("should handle objects and arrays", () => {
       const testObj = { id: 123, name: "test" };
       const testArr = [1, 2, 3];
-      
+
       logger.info("Data:", testObj, testArr);
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP INFO]",
         "Data:",
         testObj,
-        testArr
+        testArr,
       );
     });
   });
@@ -77,7 +79,7 @@ describe("logger", () => {
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP WARN]",
-        "Warning message"
+        "Warning message",
       );
     });
 
@@ -88,7 +90,7 @@ describe("logger", () => {
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP WARN]",
         "Warning:",
-        error
+        error,
       );
     });
   });
@@ -99,20 +101,20 @@ describe("logger", () => {
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP ERROR]",
-        "Error message"
+        "Error message",
       );
     });
 
     test("should handle stack traces", () => {
       const error = new Error("Test error");
       error.stack = "Error: Test error\n    at test.js:1:1";
-      
+
       logger.error("Fatal error:", error);
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP ERROR]",
         "Fatal error:",
-        error
+        error,
       );
     });
   });
@@ -120,7 +122,7 @@ describe("logger", () => {
   describe("debug method", () => {
     test("should not output when DEBUG environment variable is not set", () => {
       delete process.env.DEBUG;
-      
+
       logger.debug("Debug message");
 
       expect(mockConsoleError).not.toHaveBeenCalled();
@@ -128,30 +130,30 @@ describe("logger", () => {
 
     test("should output to stderr with MCP DEBUG prefix when DEBUG is set", () => {
       process.env.DEBUG = "1";
-      
+
       logger.debug("Debug message", { debugData: true });
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP DEBUG]",
         "Debug message",
-        { debugData: true }
+        { debugData: true },
       );
     });
 
     test("should output when DEBUG is set to any truthy value", () => {
       process.env.DEBUG = "true";
-      
+
       logger.debug("Another debug message");
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP DEBUG]",
-        "Another debug message"
+        "Another debug message",
       );
     });
 
     test("should not output when DEBUG is set to empty string", () => {
       process.env.DEBUG = "";
-      
+
       logger.debug("Should not appear");
 
       expect(mockConsoleError).not.toHaveBeenCalled();
@@ -159,12 +161,12 @@ describe("logger", () => {
 
     test("should output when DEBUG is set to '0' (truthy string)", () => {
       process.env.DEBUG = "0";
-      
+
       logger.debug("Should appear because '0' is truthy");
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         "[MCP DEBUG]",
-        "Should appear because '0' is truthy"
+        "Should appear because '0' is truthy",
       );
     });
   });
@@ -180,7 +182,7 @@ describe("logger", () => {
 
     test("should be callable without context", () => {
       const { log, info, warn, error, debug } = logger;
-      
+
       expect(() => log("test")).not.toThrow();
       expect(() => info("test")).not.toThrow();
       expect(() => warn("test")).not.toThrow();
@@ -191,24 +193,26 @@ describe("logger", () => {
 
   describe("JSON-RPC compliance", () => {
     test("should never output to stdout to avoid interfering with JSON-RPC", () => {
-      const mockConsoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
-      
+      const mockConsoleLog = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+
       logger.log("test");
       logger.info("test");
       logger.warn("test");
       logger.error("test");
-      
+
       process.env.DEBUG = "1";
       logger.debug("test");
 
       expect(mockConsoleLog).not.toHaveBeenCalled();
-      
+
       mockConsoleLog.mockRestore();
     });
 
     test("should always use stderr for all log levels", () => {
       process.env.DEBUG = "1";
-      
+
       logger.log("log test");
       logger.info("info test");
       logger.warn("warn test");
@@ -216,11 +220,31 @@ describe("logger", () => {
       logger.debug("debug test");
 
       expect(mockConsoleError).toHaveBeenCalledTimes(5);
-      expect(mockConsoleError).toHaveBeenNthCalledWith(1, "[MCP INFO]", "log test");
-      expect(mockConsoleError).toHaveBeenNthCalledWith(2, "[MCP INFO]", "info test");
-      expect(mockConsoleError).toHaveBeenNthCalledWith(3, "[MCP WARN]", "warn test");
-      expect(mockConsoleError).toHaveBeenNthCalledWith(4, "[MCP ERROR]", "error test");
-      expect(mockConsoleError).toHaveBeenNthCalledWith(5, "[MCP DEBUG]", "debug test");
+      expect(mockConsoleError).toHaveBeenNthCalledWith(
+        1,
+        "[MCP INFO]",
+        "log test",
+      );
+      expect(mockConsoleError).toHaveBeenNthCalledWith(
+        2,
+        "[MCP INFO]",
+        "info test",
+      );
+      expect(mockConsoleError).toHaveBeenNthCalledWith(
+        3,
+        "[MCP WARN]",
+        "warn test",
+      );
+      expect(mockConsoleError).toHaveBeenNthCalledWith(
+        4,
+        "[MCP ERROR]",
+        "error test",
+      );
+      expect(mockConsoleError).toHaveBeenNthCalledWith(
+        5,
+        "[MCP DEBUG]",
+        "debug test",
+      );
     });
   });
 });

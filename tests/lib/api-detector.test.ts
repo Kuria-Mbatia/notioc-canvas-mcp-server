@@ -59,8 +59,18 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: true, status: 200 },
-            files: { name: "files", path: "/files", available: false, status: 403 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: true,
+              status: 200,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: false,
+              status: 403,
+            },
           },
         },
       };
@@ -71,7 +81,7 @@ describe("api-detector", () => {
         testCourseId,
         testBaseUrl,
         testAccessToken,
-        true
+        true,
       );
 
       expect(result.courseId).toBe(testCourseId);
@@ -93,7 +103,8 @@ describe("api-detector", () => {
             ok: false,
             status: 403,
             statusText: "Forbidden",
-            text: () => Promise.resolve(JSON.stringify({ message: "Access denied" })),
+            text: () =>
+              Promise.resolve(JSON.stringify({ message: "Access denied" })),
           });
         }
         return Promise.resolve({
@@ -107,7 +118,7 @@ describe("api-detector", () => {
         testCourseId,
         testBaseUrl,
         testAccessToken,
-        false
+        false,
       );
 
       expect(result.courseId).toBe(testCourseId);
@@ -126,7 +137,7 @@ describe("api-detector", () => {
         testCourseId,
         testBaseUrl,
         testAccessToken,
-        false
+        false,
       );
 
       expect(result.summary.availableEndpoints).toBe(0);
@@ -145,7 +156,7 @@ describe("api-detector", () => {
         testCourseId,
         testBaseUrl,
         testAccessToken,
-        true
+        true,
       );
 
       expect(mockSetCachedDiscovery).toHaveBeenCalledWith(
@@ -153,7 +164,7 @@ describe("api-detector", () => {
         expect.objectContaining({
           courseId: testCourseId,
           apiAvailability: expect.any(Object),
-        })
+        }),
       );
     });
 
@@ -168,7 +179,7 @@ describe("api-detector", () => {
         testCourseId,
         testBaseUrl,
         testAccessToken,
-        false
+        false,
       );
 
       expect(result.summary.availableEndpoints).toBe(0);
@@ -184,10 +195,30 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: true, status: 200 },
-            files: { name: "files", path: "/files", available: true, status: 200 },
-            modules: { name: "modules", path: "/modules", available: true, status: 200 },
-            assignments: { name: "assignments", path: "/assignments", available: true, status: 200 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: true,
+              status: 200,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: true,
+              status: 200,
+            },
+            modules: {
+              name: "modules",
+              path: "/modules",
+              available: true,
+              status: 200,
+            },
+            assignments: {
+              name: "assignments",
+              path: "/assignments",
+              available: true,
+              status: 200,
+            },
           } as any,
         },
         summary: {
@@ -212,8 +243,18 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: false, status: 403 },
-            files: { name: "files", path: "/files", available: false, status: 403 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: false,
+              status: 403,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: false,
+              status: 403,
+            },
           } as any,
         },
         summary: {
@@ -228,7 +269,9 @@ describe("api-detector", () => {
       };
 
       const summary = getAPIRestrictionSummary(testResult);
-      expect(summary).toBe("All APIs restricted (0/2) - Web discovery recommended");
+      expect(summary).toBe(
+        "All APIs restricted (0/2) - Web discovery recommended",
+      );
     });
 
     test("should return partial access message with restricted API names", () => {
@@ -238,9 +281,24 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: true, status: 200 },
-            files: { name: "files", path: "/files", available: false, status: 403 },
-            modules: { name: "modules", path: "/modules", available: false, status: 404 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: true,
+              status: 200,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: false,
+              status: 403,
+            },
+            modules: {
+              name: "modules",
+              path: "/modules",
+              available: false,
+              status: 404,
+            },
           } as any,
         },
         summary: {
@@ -255,7 +313,9 @@ describe("api-detector", () => {
       };
 
       const summary = getAPIRestrictionSummary(testResult);
-      expect(summary).toBe("Partial API access (1/3 available). Restricted: files, modules");
+      expect(summary).toBe(
+        "Partial API access (1/3 available). Restricted: files, modules",
+      );
     });
   });
 
@@ -266,8 +326,18 @@ describe("api-detector", () => {
         courseId: testCourseId,
         tested: new Date(),
         endpoints: {
-          pages: { name: "pages", path: "/pages", available: true, status: 200 },
-          files: { name: "files", path: "/files", available: false, status: 403 },
+          pages: {
+            name: "pages",
+            path: "/pages",
+            available: true,
+            status: 200,
+          },
+          files: {
+            name: "files",
+            path: "/files",
+            available: false,
+            status: 403,
+          },
         } as any,
       },
       summary: {
@@ -302,9 +372,24 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: false, status: 404 },
-            files: { name: "files", path: "/files", available: false, status: 403 },
-            modules: { name: "modules", path: "/modules", available: false, status: 403 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: false,
+              status: 404,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: false,
+              status: 403,
+            },
+            modules: {
+              name: "modules",
+              path: "/modules",
+              available: false,
+              status: 403,
+            },
           } as any,
         },
         summary: {
@@ -321,17 +406,17 @@ describe("api-detector", () => {
       const fallbacks = getSuggestedFallbacks(testResult);
 
       expect(fallbacks).toHaveLength(3);
-      expect(fallbacks.find(f => f.api === "pages")).toEqual({
+      expect(fallbacks.find((f) => f.api === "pages")).toEqual({
         api: "pages",
         fallback: "Web interface discovery",
         reason: "Pages API disabled - try direct page URLs",
       });
-      expect(fallbacks.find(f => f.api === "files")).toEqual({
+      expect(fallbacks.find((f) => f.api === "files")).toEqual({
         api: "files",
         fallback: "Extract from page content",
         reason: "Files API unauthorized - search for embedded file links",
       });
-      expect(fallbacks.find(f => f.api === "modules")).toEqual({
+      expect(fallbacks.find((f) => f.api === "modules")).toEqual({
         api: "modules",
         fallback: "Course navigation parsing",
         reason: "Modules API restricted - check course tabs/navigation",
@@ -345,8 +430,18 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            pages: { name: "pages", path: "/pages", available: true, status: 200 },
-            files: { name: "files", path: "/files", available: true, status: 200 },
+            pages: {
+              name: "pages",
+              path: "/pages",
+              available: true,
+              status: 200,
+            },
+            files: {
+              name: "files",
+              path: "/files",
+              available: true,
+              status: 200,
+            },
           } as any,
         },
         summary: {
@@ -371,7 +466,12 @@ describe("api-detector", () => {
           courseId: testCourseId,
           tested: new Date(),
           endpoints: {
-            unknown: { name: "unknown", path: "/unknown", available: false, status: 403 },
+            unknown: {
+              name: "unknown",
+              path: "/unknown",
+              available: false,
+              status: 403,
+            },
           } as any,
         },
         summary: {

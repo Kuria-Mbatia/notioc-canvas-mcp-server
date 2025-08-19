@@ -18,14 +18,16 @@ describe("extractPageSlug", () => {
   });
 
   test("extracts slug from URL without query parameters", () => {
-    const url = "https://psu.instructure.com/courses/2422265/pages/introduction";
+    const url =
+      "https://psu.instructure.com/courses/2422265/pages/introduction";
     const result = extractPageSlug(url);
 
     expect(result).toBe("introduction");
   });
 
   test("extracts slug with hyphens and numbers", () => {
-    const url = "https://psu.instructure.com/courses/2422265/pages/week-1-assignment-instructions";
+    const url =
+      "https://psu.instructure.com/courses/2422265/pages/week-1-assignment-instructions";
     const result = extractPageSlug(url);
 
     expect(result).toBe("week-1-assignment-instructions");
@@ -99,7 +101,7 @@ describe("isCanvasUrl", () => {
   test("handles URLs with different protocols", () => {
     const httpUrl = "http://psu.instructure.com/courses/123";
     const httpsUrl = "https://psu.instructure.com/courses/123";
-    
+
     expect(isCanvasUrl(httpUrl)).toBe(true);
     expect(isCanvasUrl(httpsUrl)).toBe(true);
   });
@@ -224,7 +226,8 @@ describe("parseCanvasUrl", () => {
   });
 
   test("extracts multiple query parameters correctly", () => {
-    const url = "https://psu.instructure.com/courses/123/pages/test?module_item_id=456&other=value&another=param";
+    const url =
+      "https://psu.instructure.com/courses/123/pages/test?module_item_id=456&other=value&another=param";
     const result = parseCanvasUrl(url);
 
     expect(result).toEqual({
@@ -269,7 +272,8 @@ describe("parseCanvasUrl", () => {
   });
 
   test("handles null module_item_id parameter", () => {
-    const url = "https://psu.instructure.com/courses/123/pages/test?module_item_id=";
+    const url =
+      "https://psu.instructure.com/courses/123/pages/test?module_item_id=";
     const result = parseCanvasUrl(url);
 
     expect(result.moduleItemId).toBeUndefined();

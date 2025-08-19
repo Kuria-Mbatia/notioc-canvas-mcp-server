@@ -31,7 +31,7 @@ describe("small-model", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearSmallModelCache(); // Clear cache before each test
-    
+
     // Reset environment variables
     delete process.env.OPENROUTER_API_KEY;
   });
@@ -44,7 +44,7 @@ describe("small-model", () => {
   describe("getDefaultSmallModelConfig", () => {
     test("should return default configuration", () => {
       const config = getDefaultSmallModelConfig();
-      
+
       expect(config).toEqual({
         enabled: true,
         apiKey: "",
@@ -58,17 +58,17 @@ describe("small-model", () => {
 
     test("should use environment variable for API key", () => {
       process.env.OPENROUTER_API_KEY = "test-api-key-123";
-      
+
       const config = getDefaultSmallModelConfig();
-      
+
       expect(config.apiKey).toBe("test-api-key-123");
     });
 
     test("should use empty string when API key not set", () => {
       delete process.env.OPENROUTER_API_KEY;
-      
+
       const config = getDefaultSmallModelConfig();
-      
+
       expect(config.apiKey).toBe("");
     });
   });
@@ -76,32 +76,37 @@ describe("small-model", () => {
   describe("DEFAULT_SMALL_MODEL_CONFIG", () => {
     test("should match getDefaultSmallModelConfig output", () => {
       const defaultConfig = getDefaultSmallModelConfig();
-      
+
       expect(DEFAULT_SMALL_MODEL_CONFIG).toEqual(defaultConfig);
     });
   });
 
   describe("classifyIntent", () => {
     const mockClassificationResponse = {
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            files: true,
-            pages: false,
-            assignments: true,
-            discussions: false,
-            grades: false,
-            calendar: false,
-            confidence: 0.85,
-            reasoning: "User is asking about downloading files and assignment details"
-          })
-        }
-      }]
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              files: true,
+              pages: false,
+              assignments: true,
+              discussions: false,
+              grades: false,
+              calendar: false,
+              confidence: 0.85,
+              reasoning:
+                "User is asking about downloading files and assignment details",
+            }),
+          },
+        },
+      ],
     };
 
     test("should classify user intent with fallback behavior", async () => {
       // The function will likely fail due to missing API key and use fallback
-      const result = await classifyIntent("Can you help me download the assignment files?");
+      const result = await classifyIntent(
+        "Can you help me download the assignment files?",
+      );
 
       expect(result).toEqual({
         files: true, // Fallback includes files by default
@@ -111,22 +116,22 @@ describe("small-model", () => {
         grades: false,
         calendar: false,
         confidence: 0.3,
-        reasoning: "Fallback due to API error"
+        reasoning: "Fallback due to API error",
       });
     });
 
     test("should use cached results for repeated queries", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockClassificationResponse)
+        json: () => Promise.resolve(mockClassificationResponse),
       });
 
       const query = "Show me my grades";
-      
+
       // First call - this might fail and use fallback, but should still cache
       const result1 = await classifyIntent(query);
       const initialCallCount = mockFetch.mock.calls.length;
-      
+
       // Second call should use cache
       const result2 = await classifyIntent(query);
       expect(mockFetch).toHaveBeenCalledTimes(initialCallCount); // Should be same
@@ -137,7 +142,7 @@ describe("small-model", () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
-        statusText: "Unauthorized"
+        statusText: "Unauthorized",
       });
 
       const result = await classifyIntent("Test query");
@@ -150,7 +155,7 @@ describe("small-model", () => {
         grades: false,
         calendar: false,
         confidence: 0.3,
-        reasoning: "Fallback due to API error"
+        reasoning: "Fallback due to API error",
       });
     });
 
@@ -167,20 +172,23 @@ describe("small-model", () => {
         grades: false,
         calendar: false,
         confidence: 0.3,
-        reasoning: "Fallback due to API error"
+        reasoning: "Fallback due to API error",
       });
     });
 
     test("should handle malformed JSON response", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: "invalid json response"
-            }
-          }]
-        })
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: "invalid json response",
+                },
+              },
+            ],
+          }),
       });
 
       const result = await classifyIntent("Test query");
@@ -200,9 +208,9 @@ describe("small-model", () => {
         grades: false,
         calendar: false,
         confidence: 0.3,
-        reasoning: "Fallback due to API error"
+        reasoning: "Fallback due to API error",
       });
-      
+
       // Empty query may or may not call API - just check result is correct
     });
   });
@@ -214,56 +222,59 @@ describe("small-model", () => {
         title: "Assignment 1 Instructions",
         source: "Canvas Page",
         snippet: "Complete the programming assignment",
-        type: "assignment"
+        type: "assignment",
       },
       {
-        id: "2", 
+        id: "2",
         title: "Lecture Notes PDF",
         source: "Canvas Files",
         snippet: "Detailed notes from today's lecture",
-        type: "file"
-      }
+        type: "file",
+      },
     ];
 
     const mockRerankResponse = {
-      choices: [{
-        message: {
-          content: JSON.stringify([
-            {
-              id: "2",
-              score: 0.95,
-              reasoning: "Most relevant to the query about lecture content"
-            },
-            {
-              id: "1", 
-              score: 0.75,
-              reasoning: "Related but more about assignments than lecture content"
-            }
-          ])
-        }
-      }]
+      choices: [
+        {
+          message: {
+            content: JSON.stringify([
+              {
+                id: "2",
+                score: 0.95,
+                reasoning: "Most relevant to the query about lecture content",
+              },
+              {
+                id: "1",
+                score: 0.75,
+                reasoning:
+                  "Related but more about assignments than lecture content",
+              },
+            ]),
+          },
+        },
+      ],
     };
 
     test("should rerank candidates correctly with few candidates", async () => {
       // With only 2 candidates, it returns all with default scores
       const results = await rerankCandidates(
         "lecture notes from today",
-        mockCandidates
+        mockCandidates,
       );
 
       expect(results).toEqual([
         {
           id: "1",
           score: 1.0,
-          reasoning: "All candidates returned due to low count"
+          reasoning: "All candidates returned due to low count",
         },
         {
           id: "2",
           score: 0.9,
-          reasoning: "All candidates returned due to low count"
-        }
+          reasoning: "All candidates returned due to low count",
+        },
       ]);
-      
+
       // Should not call API for few candidates
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -283,26 +294,26 @@ describe("small-model", () => {
         {
           id: "1",
           score: 1.0,
-          reasoning: "All candidates returned due to low count"
+          reasoning: "All candidates returned due to low count",
         },
         {
           id: "2",
           score: 0.9,
-          reasoning: "All candidates returned due to low count"
-        }
+          reasoning: "All candidates returned due to low count",
+        },
       ]);
     });
 
     test("should use cached results for reranking", async () => {
       const query = "lecture notes";
-      
+
       // First call
       const results1 = await rerankCandidates(query, mockCandidates);
-      
+
       // Second call should use cache
       const results2 = await rerankCandidates(query, mockCandidates);
       expect(results2).toEqual(results1);
-      
+
       // With few candidates, API is not called
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -313,14 +324,17 @@ describe("small-model", () => {
       // First, populate caches by making calls
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{ message: { content: '{"files":true,"confidence":0.8}' } }]
-        })
+        json: () =>
+          Promise.resolve({
+            choices: [
+              { message: { content: '{"files":true,"confidence":0.8}' } },
+            ],
+          }),
       });
 
       // Get initial stats
       const initialStats = getSmallModelStats();
-      
+
       const result = clearSmallModelCache();
 
       expect(result).toEqual({
@@ -358,22 +372,25 @@ describe("small-model", () => {
     test("should reflect cache size changes", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                files: true,
-                pages: false,
-                assignments: false,
-                discussions: false,
-                grades: false,
-                calendar: false,
-                confidence: 0.8,
-                reasoning: "Test"
-              })
-            }
-          }]
-        })
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    files: true,
+                    pages: false,
+                    assignments: false,
+                    discussions: false,
+                    grades: false,
+                    calendar: false,
+                    confidence: 0.8,
+                    reasoning: "Test",
+                  }),
+                },
+              },
+            ],
+          }),
       });
 
       // Initially empty
@@ -394,22 +411,25 @@ describe("small-model", () => {
       // Mock successful responses
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                files: true,
-                pages: false,
-                assignments: true,
-                discussions: false,
-                grades: false,
-                calendar: false,
-                confidence: 0.9,
-                reasoning: "User wants assignment files"
-              })
-            }
-          }]
-        })
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    files: true,
+                    pages: false,
+                    assignments: true,
+                    discussions: false,
+                    grades: false,
+                    calendar: false,
+                    confidence: 0.9,
+                    reasoning: "User wants assignment files",
+                  }),
+                },
+              },
+            ],
+          }),
       });
 
       // Classify intent
@@ -420,7 +440,7 @@ describe("small-model", () => {
       // Check cache stats
       const stats = getSmallModelStats();
       const cacheSize = stats.intentCacheSize;
-      
+
       // Clear cache
       const clearResult = clearSmallModelCache();
       expect(clearResult.intentCleared).toBe(cacheSize);

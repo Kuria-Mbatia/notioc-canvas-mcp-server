@@ -66,17 +66,24 @@ describe("mcp", () => {
 
     test("should find course ID for exact name match", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+        },
         { id: "456", name: "Advanced Programming", courseCode: "CS201" },
       ];
 
       mockListCourses.mockResolvedValue(mockCourses);
-      mockFindBestMatch.mockReturnValue({ id: "123", name: "Introduction to Computer Science" });
+      mockFindBestMatch.mockReturnValue({
+        id: "123",
+        name: "Introduction to Computer Science",
+      });
 
       const result = await mcp.context.findCourseId(
         "Introduction to Computer Science",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("123");
@@ -88,36 +95,47 @@ describe("mcp", () => {
       expect(mockFindBestMatch).toHaveBeenCalledWith(
         "Introduction to Computer Science",
         mockCourses,
-        ["name", "courseCode", "nickname"]
+        ["name", "courseCode", "nickname"],
       );
     });
 
     test("should find course ID for partial name match", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+        },
         { id: "456", name: "Advanced Programming", courseCode: "CS201" },
       ];
 
       mockListCourses.mockResolvedValue(mockCourses);
-      mockFindBestMatch.mockReturnValue({ id: "456", name: "Advanced Programming" });
+      mockFindBestMatch.mockReturnValue({
+        id: "456",
+        name: "Advanced Programming",
+      });
 
       const result = await mcp.context.findCourseId(
         "programming",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("456");
       expect(mockFindBestMatch).toHaveBeenCalledWith(
         "programming",
         mockCourses,
-        ["name", "courseCode", "nickname"]
+        ["name", "courseCode", "nickname"],
       );
     });
 
     test("should find course ID by course code", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+        },
         { id: "456", name: "Advanced Programming", courseCode: "CS201" },
       ];
 
@@ -127,21 +145,31 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "CS201",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("456");
-      expect(mockFindBestMatch).toHaveBeenCalledWith(
-        "CS201",
-        mockCourses,
-        ["name", "courseCode", "nickname"]
-      );
+      expect(mockFindBestMatch).toHaveBeenCalledWith("CS201", mockCourses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
     });
 
     test("should find course ID by nickname", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101", nickname: "Intro CS" },
-        { id: "456", name: "Advanced Programming", courseCode: "CS201", nickname: "Advanced Prog" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+          nickname: "Intro CS",
+        },
+        {
+          id: "456",
+          name: "Advanced Programming",
+          courseCode: "CS201",
+          nickname: "Advanced Prog",
+        },
       ];
 
       mockListCourses.mockResolvedValue(mockCourses);
@@ -150,15 +178,15 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "Intro CS",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("123");
-      expect(mockFindBestMatch).toHaveBeenCalledWith(
-        "Intro CS",
-        mockCourses,
-        ["name", "courseCode", "nickname"]
-      );
+      expect(mockFindBestMatch).toHaveBeenCalledWith("Intro CS", mockCourses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
     });
 
     test("should return undefined when no courses are available", async () => {
@@ -167,7 +195,7 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "Any Course",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBeUndefined();
@@ -181,7 +209,11 @@ describe("mcp", () => {
 
     test("should return undefined when no matching course is found", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+        },
         { id: "456", name: "Advanced Programming", courseCode: "CS201" },
       ];
 
@@ -191,14 +223,14 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "Quantum Physics",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBeUndefined();
       expect(mockFindBestMatch).toHaveBeenCalledWith(
         "Quantum Physics",
         mockCourses,
-        ["name", "courseCode", "nickname"]
+        ["name", "courseCode", "nickname"],
       );
     });
 
@@ -206,7 +238,11 @@ describe("mcp", () => {
       mockListCourses.mockRejectedValue(new Error("API Error"));
 
       await expect(
-        mcp.context.findCourseId("Any Course", testCanvasBaseUrl, testAccessToken)
+        mcp.context.findCourseId(
+          "Any Course",
+          testCanvasBaseUrl,
+          testAccessToken,
+        ),
       ).rejects.toThrow("API Error");
 
       expect(mockListCourses).toHaveBeenCalledWith({
@@ -219,7 +255,11 @@ describe("mcp", () => {
 
     test("should handle findBestMatch errors", async () => {
       const mockCourses = [
-        { id: "123", name: "Introduction to Computer Science", courseCode: "CS101" },
+        {
+          id: "123",
+          name: "Introduction to Computer Science",
+          courseCode: "CS101",
+        },
       ];
 
       mockListCourses.mockResolvedValue(mockCourses);
@@ -228,7 +268,7 @@ describe("mcp", () => {
       });
 
       await expect(
-        mcp.context.findCourseId("CS101", testCanvasBaseUrl, testAccessToken)
+        mcp.context.findCourseId("CS101", testCanvasBaseUrl, testAccessToken),
       ).rejects.toThrow("Search Error");
 
       expect(mockListCourses).toHaveBeenCalled();
@@ -244,15 +284,27 @@ describe("mcp", () => {
       mockFindBestMatch.mockReturnValue(null);
 
       // Empty string
-      let result = await mcp.context.findCourseId("", testCanvasBaseUrl, testAccessToken);
+      let result = await mcp.context.findCourseId(
+        "",
+        testCanvasBaseUrl,
+        testAccessToken,
+      );
       expect(result).toBeUndefined();
 
       // Special characters
-      result = await mcp.context.findCourseId("@#$%", testCanvasBaseUrl, testAccessToken);
+      result = await mcp.context.findCourseId(
+        "@#$%",
+        testCanvasBaseUrl,
+        testAccessToken,
+      );
       expect(result).toBeUndefined();
 
       // Whitespace
-      result = await mcp.context.findCourseId("   ", testCanvasBaseUrl, testAccessToken);
+      result = await mcp.context.findCourseId(
+        "   ",
+        testCanvasBaseUrl,
+        testAccessToken,
+      );
       expect(result).toBeUndefined();
 
       expect(mockListCourses).toHaveBeenCalledTimes(3);
@@ -272,14 +324,14 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "Course with Name",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("456");
       expect(mockFindBestMatch).toHaveBeenCalledWith(
         "Course with Name",
         mockCourses,
-        ["name", "courseCode", "nickname"]
+        ["name", "courseCode", "nickname"],
       );
     });
 
@@ -296,7 +348,7 @@ describe("mcp", () => {
       const result = await mcp.context.findCourseId(
         "Course 50",
         testCanvasBaseUrl,
-        testAccessToken
+        testAccessToken,
       );
 
       expect(result).toBe("50");
@@ -305,11 +357,11 @@ describe("mcp", () => {
         accessToken: testAccessToken,
         enrollmentState: "all",
       });
-      expect(mockFindBestMatch).toHaveBeenCalledWith(
-        "Course 50",
-        mockCourses,
-        ["name", "courseCode", "nickname"]
-      );
+      expect(mockFindBestMatch).toHaveBeenCalledWith("Course 50", mockCourses, [
+        "name",
+        "courseCode",
+        "nickname",
+      ]);
     });
   });
 
@@ -333,14 +385,22 @@ describe("mcp", () => {
       mockListCourses
         .mockResolvedValueOnce(mockCourses1)
         .mockResolvedValueOnce(mockCourses2);
-      
+
       mockFindBestMatch
         .mockReturnValueOnce({ id: "123" })
         .mockReturnValueOnce({ id: "456" });
 
       const [result1, result2] = await Promise.all([
-        mcp1.context.findCourseId("Course 1", testCanvasBaseUrl, testAccessToken),
-        mcp2.context.findCourseId("Course 2", testCanvasBaseUrl, testAccessToken),
+        mcp1.context.findCourseId(
+          "Course 1",
+          testCanvasBaseUrl,
+          testAccessToken,
+        ),
+        mcp2.context.findCourseId(
+          "Course 2",
+          testCanvasBaseUrl,
+          testAccessToken,
+        ),
       ]);
 
       expect(result1).toBe("123");

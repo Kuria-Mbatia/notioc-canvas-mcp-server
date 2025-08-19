@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  vi,
+  type MockedFunction,
+} from "vitest";
 import {
   extractCourseContent,
   smartSearch,
@@ -48,7 +55,9 @@ describe("Content Extraction Engine", () => {
 
   describe("extractCourseContent", () => {
     it("should return cached content when available", async () => {
-      const { getCachedDiscovery } = await import("../../src/lib/course-discovery.js");
+      const { getCachedDiscovery } = await import(
+        "../../src/lib/course-discovery.js"
+      );
       const mockCachedContent = {
         courseId: mockCourseId,
         lastScanned: new Date(),
@@ -65,13 +74,15 @@ describe("Content Extraction Engine", () => {
         },
       };
 
-      (getCachedDiscovery as MockedFunction<typeof getCachedDiscovery>).mockReturnValue(mockCachedContent);
+      (
+        getCachedDiscovery as MockedFunction<typeof getCachedDiscovery>
+      ).mockReturnValue(mockCachedContent);
 
       const result = await extractCourseContent(
         mockCourseId,
         mockCanvasBaseUrl,
         mockAccessToken,
-        { forceRefresh: false }
+        { forceRefresh: false },
       );
 
       expect(result.success).toBe(true);
@@ -80,32 +91,46 @@ describe("Content Extraction Engine", () => {
     });
 
     it("should handle extraction errors gracefully", async () => {
-      const { getCachedDiscovery } = await import("../../src/lib/course-discovery.js");
-      const { testCourseAPIAvailability } = await import("../../src/lib/api-detector.js");
+      const { getCachedDiscovery } = await import(
+        "../../src/lib/course-discovery.js"
+      );
+      const { testCourseAPIAvailability } = await import(
+        "../../src/lib/api-detector.js"
+      );
 
-      (getCachedDiscovery as MockedFunction<typeof getCachedDiscovery>).mockReturnValue(null);
-      (testCourseAPIAvailability as MockedFunction<typeof testCourseAPIAvailability>).mockRejectedValue(new Error("API test failed"));
+      (
+        getCachedDiscovery as MockedFunction<typeof getCachedDiscovery>
+      ).mockReturnValue(null);
+      (
+        testCourseAPIAvailability as MockedFunction<
+          typeof testCourseAPIAvailability
+        >
+      ).mockRejectedValue(new Error("API test failed"));
 
       const result = await extractCourseContent(
         mockCourseId,
         mockCanvasBaseUrl,
-        mockAccessToken
+        mockAccessToken,
       );
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("Content extraction failed: API test failed");
+      expect(result.errors).toContain(
+        "Content extraction failed: API test failed",
+      );
     });
   });
 
   describe("clearCourseCache", () => {
     it("should clear cache for specific course", async () => {
-      const { clearDiscoveryCache } = await import("../../src/lib/course-discovery.js");
-      
+      const { clearDiscoveryCache } = await import(
+        "../../src/lib/course-discovery.js"
+      );
+
       clearCourseCache(mockCourseId);
 
       expect(clearDiscoveryCache).toHaveBeenCalledWith(mockCourseId);
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining(`Cleared cache for course ${mockCourseId}`)
+        expect.stringContaining(`Cleared cache for course ${mockCourseId}`),
       );
     });
   });

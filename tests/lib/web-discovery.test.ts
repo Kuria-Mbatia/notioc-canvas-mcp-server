@@ -40,20 +40,22 @@ describe("Web Discovery", () => {
 
   describe("discoverCourseContentViaWeb", () => {
     it("should discover course content successfully", async () => {
-      const { parseCanvasURL, extractFileIdsFromHTML, extractLinksFromHTML } = await import("../../src/lib/url-processor.js");
-      
+      const { parseCanvasURL, extractFileIdsFromHTML, extractLinksFromHTML } =
+        await import("../../src/lib/url-processor.js");
+
       // Mock navigation API response
       (global.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve([
-            {
-              id: "home",
-              label: "Home",
-              html_url: `${mockCanvasBaseUrl}/courses/${mockCourseId}/pages/home`,
-              visibility: "public",
-            },
-          ]),
+          json: () =>
+            Promise.resolve([
+              {
+                id: "home",
+                label: "Home",
+                html_url: `${mockCanvasBaseUrl}/courses/${mockCourseId}/pages/home`,
+                visibility: "public",
+              },
+            ]),
         })
         // Mock page accessibility check
         .mockResolvedValueOnce({ ok: true })
@@ -65,9 +67,10 @@ describe("Web Discovery", () => {
         // Mock page content API
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            body: '<p>Course content with <a href="/files/123">test.pdf</a></p>',
-          }),
+          json: () =>
+            Promise.resolve({
+              body: '<p>Course content with <a href="/files/123">test.pdf</a></p>',
+            }),
         });
 
       (parseCanvasURL as any).mockReturnValue({
@@ -80,13 +83,17 @@ describe("Web Discovery", () => {
       ]);
 
       (extractLinksFromHTML as any).mockReturnValue([
-        { title: "External Link", url: "https://example.com", type: "external" },
+        {
+          title: "External Link",
+          url: "https://example.com",
+          type: "external",
+        },
       ]);
 
       const result = await discoverCourseContentViaWeb(
         mockCourseId,
         mockCanvasBaseUrl,
-        mockAccessToken
+        mockAccessToken,
       );
 
       expect(result.success).toBe(true);
@@ -105,7 +112,7 @@ describe("Web Discovery", () => {
       const result = await discoverCourseContentViaWeb(
         mockCourseId,
         mockCanvasBaseUrl,
-        mockAccessToken
+        mockAccessToken,
       );
 
       expect(result.success).toBe(false);
@@ -113,8 +120,10 @@ describe("Web Discovery", () => {
     });
 
     it("should respect rate limiting when enabled", async () => {
-      const { extractFileIdsFromHTML, extractLinksFromHTML } = await import("../../src/lib/url-processor.js");
-      
+      const { extractFileIdsFromHTML, extractLinksFromHTML } = await import(
+        "../../src/lib/url-processor.js"
+      );
+
       // Mock successful navigation and page discovery
       (global.fetch as any)
         .mockResolvedValueOnce({
@@ -143,7 +152,7 @@ describe("Web Discovery", () => {
         mockCourseId,
         mockCanvasBaseUrl,
         mockAccessToken,
-        options
+        options,
       );
 
       const endTime = Date.now();
@@ -165,7 +174,7 @@ describe("Web Discovery", () => {
         mockCourseId,
         mockCanvasBaseUrl,
         mockAccessToken,
-        { extractEmbeddedContent: true }
+        { extractEmbeddedContent: true },
       );
 
       // Should succeed but with no content found
@@ -185,13 +194,13 @@ describe("Web Discovery", () => {
         mockCourseId,
         mockCanvasBaseUrl,
         mockAccessToken,
-        options
+        options,
       );
 
       // Should not call navigation API
       expect(fetch).not.toHaveBeenCalledWith(
         `${mockCanvasBaseUrl}/api/v1/courses/${mockCourseId}/tabs`,
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -202,7 +211,7 @@ describe("Web Discovery", () => {
       const result = await discoverCourseContentViaWeb(
         mockCourseId,
         mockCanvasBaseUrl,
-        mockAccessToken
+        mockAccessToken,
       );
 
       // Since navigation discovery catches errors internally, the main function
@@ -302,7 +311,10 @@ describe("Web Discovery", () => {
     });
 
     it("should handle multiple search terms", () => {
-      const result = searchDiscoveredContent(mockDiscoveryResult, "course syllabus");
+      const result = searchDiscoveredContent(
+        mockDiscoveryResult,
+        "course syllabus",
+      );
 
       expect(result.files.length + result.pages.length).toBeGreaterThan(0);
     });
@@ -322,7 +334,10 @@ describe("Web Discovery", () => {
     });
 
     it("should return empty results for no matches", () => {
-      const result = searchDiscoveredContent(mockDiscoveryResult, "nonexistent");
+      const result = searchDiscoveredContent(
+        mockDiscoveryResult,
+        "nonexistent",
+      );
 
       expect(result.files).toHaveLength(0);
       expect(result.pages).toHaveLength(0);
@@ -340,7 +355,12 @@ describe("Web Discovery", () => {
         searchableContent: "",
         errors: [],
         warnings: [],
-        timing: { totalTime: 0, pagesDiscovered: 0, filesExtracted: 0, linksExtracted: 0 },
+        timing: {
+          totalTime: 0,
+          pagesDiscovered: 0,
+          filesExtracted: 0,
+          linksExtracted: 0,
+        },
       };
 
       const result = searchDiscoveredContent(emptyResult, "anything");

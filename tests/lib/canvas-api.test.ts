@@ -51,7 +51,7 @@ describe("canvas-api", () => {
           accessToken: "token",
           method: "GET",
           apiPath: "/api/v1/courses",
-        })
+        }),
       ).rejects.toThrow("Missing required Canvas API parameters");
 
       await expect(
@@ -60,7 +60,7 @@ describe("canvas-api", () => {
           accessToken: "",
           method: "GET",
           apiPath: "/api/v1/courses",
-        })
+        }),
       ).rejects.toThrow("Missing required Canvas API parameters");
 
       await expect(
@@ -69,7 +69,7 @@ describe("canvas-api", () => {
           accessToken: "token",
           method: "GET",
           apiPath: "",
-        })
+        }),
       ).rejects.toThrow("Missing required Canvas API parameters");
     });
 
@@ -92,7 +92,7 @@ describe("canvas-api", () => {
             "User-Agent": "Notioc-MCP-Server/1.0.0",
           },
           body: null,
-        }
+        },
       );
     });
 
@@ -114,7 +114,7 @@ describe("canvas-api", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://test.instructure.com/api/v1/courses?per_page=50&include=enrollments&state%5B%5D=available&state%5B%5D=completed&published=true",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -144,7 +144,7 @@ describe("canvas-api", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(postBody),
-        }
+        },
       );
     });
 
@@ -174,7 +174,7 @@ describe("canvas-api", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(putBody),
-        }
+        },
       );
     });
 
@@ -192,7 +192,7 @@ describe("canvas-api", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://test.instructure.com/api/v1/courses",
-        expect.any(Object)
+        expect.any(Object),
       );
 
       // Test with protocol in base URL
@@ -203,7 +203,7 @@ describe("canvas-api", () => {
 
       expect(mockFetch).toHaveBeenLastCalledWith(
         "https://test.instructure.com/api/v1/courses",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -214,9 +214,11 @@ describe("canvas-api", () => {
 
       expect(response.status).toBe(502);
       expect(response.headers.get("Content-Type")).toBe("application/json");
-      
+
       const errorData = await response.json();
-      expect(errorData.error).toContain("Canvas API network error: Network connection failed");
+      expect(errorData.error).toContain(
+        "Canvas API network error: Network connection failed",
+      );
     });
 
     test("should return successful response for valid requests", async () => {
@@ -232,7 +234,7 @@ describe("canvas-api", () => {
 
       expect(response.status).toBe(200);
       expect(response.statusText).toBe("OK");
-      
+
       const responseData = await response.json();
       expect(responseData).toEqual(mockData);
     });
@@ -243,7 +245,7 @@ describe("canvas-api", () => {
         {
           status: 401,
           statusText: "Unauthorized",
-        }
+        },
       );
       mockFetch.mockResolvedValue(mockResponse);
 
@@ -276,7 +278,7 @@ describe("canvas-api", () => {
             "User-Agent": "Notioc-MCP-Server/1.0.0",
           },
           body: null,
-        }
+        },
       );
     });
   });
@@ -442,7 +444,9 @@ describe("canvas-api", () => {
 
       expect(entry.id).toBe("606");
       expect(entry.user_id).toBe("707");
-      expect(entry.message).toBe("Hello everyone! I'm excited to be in this class.");
+      expect(entry.message).toBe(
+        "Hello everyone! I'm excited to be in this class.",
+      );
     });
   });
 });
