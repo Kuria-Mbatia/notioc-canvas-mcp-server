@@ -49,7 +49,9 @@ describe("Smart Search Tool", () => {
         extractionUsed: true,
       });
 
-      const mockGetExtractionStats = vi.mocked(mockSmartSearch.getExtractionStats);
+      const mockGetExtractionStats = vi.mocked(
+        mockSmartSearch.getExtractionStats,
+      );
       mockGetExtractionStats.mockResolvedValue({
         hasCache: true,
         contentCounts: { files: 1, pages: 0, links: 0 },
@@ -108,7 +110,9 @@ describe("Smart Search Tool", () => {
 
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
-      expect(result.message).toContain("Cleared content cache for course 12345");
+      expect(result.message).toContain(
+        "Cleared content cache for course 12345",
+      );
     });
 
     test("clears all content cache", () => {

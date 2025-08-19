@@ -46,7 +46,8 @@ describe("Pages Tool", () => {
       vi.mocked(mockFetchAllPaginated.fetchAllPaginated).mockResolvedValue([
         {
           title: "Test Page",
-          html_url: "https://test.instructure.com/courses/12345/pages/test-page",
+          html_url:
+            "https://test.instructure.com/courses/12345/pages/test-page",
           created_at: "2024-01-15T10:00:00Z",
           updated_at: "2024-01-16T10:00:00Z",
         },
@@ -104,7 +105,8 @@ describe("Pages Tool", () => {
         json: async () => ({
           title: "Test Page",
           body: "<p>This is test content</p>",
-          html_url: "https://test.instructure.com/courses/12345/pages/test-page",
+          html_url:
+            "https://test.instructure.com/courses/12345/pages/test-page",
         }),
       } as any);
 
@@ -113,7 +115,9 @@ describe("Pages Tool", () => {
       expect(result).toBeDefined();
       expect(result.title).toBe("Test Page");
       expect(result.body).toBe("<p>This is test content</p>");
-      expect(result.url).toBe("https://test.instructure.com/courses/12345/pages/test-page");
+      expect(result.url).toBe(
+        "https://test.instructure.com/courses/12345/pages/test-page",
+      );
     });
 
     test("handles missing page identifier", async () => {

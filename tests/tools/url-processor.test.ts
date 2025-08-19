@@ -34,6 +34,7 @@ describe("URL Processor Tool", () => {
         resourceId: "67890",
         resourceName: "Test Assignment",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/assignments/67890",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([
@@ -82,6 +83,7 @@ describe("URL Processor Tool", () => {
         resourceId: "test-page",
         resourceName: "Test Page",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/pages/test-page",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([]);
@@ -90,10 +92,8 @@ describe("URL Processor Tool", () => {
       const mockGetPageContent = await import("@/tools/pages-discussions");
       vi.mocked(mockGetPageContent.getPageContent).mockResolvedValue({
         title: "Test Page",
-        content: "<p>This is test page content</p>",
+        body: "<p>This is test page content</p>",
         url: "https://test.instructure.com/courses/12345/pages/test-page",
-        lastUpdated: "2024-01-01T00:00:00Z",
-        author: "Test User",
       });
 
       const result = await processCanvasURL(params);
@@ -117,17 +117,22 @@ describe("URL Processor Tool", () => {
         resourceId: "98765",
         resourceName: "test-document.pdf",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/files/98765",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
 
       const mockGetFileContent = await import("@/tools/files");
       vi.mocked(mockGetFileContent.getFileContent).mockResolvedValue({
-        id: "98765",
         name: "test-document.pdf",
         content: "This is the file content",
-        contentType: "application/pdf",
-        size: 1024,
         url: "https://test.instructure.com/files/98765",
+        metadata: {
+          mode: "preview",
+          truncated: false,
+          cached: false,
+          processingTime: 100,
+          originalSize: 1024,
+        },
       });
 
       const result = await processCanvasURL(params);
@@ -151,6 +156,7 @@ describe("URL Processor Tool", () => {
         resourceId: "",
         resourceName: "",
         baseUrl: "",
+        url: "https://invalid-url.com/not-canvas",
       });
 
       const result = await processCanvasURL(params);
@@ -174,6 +180,7 @@ describe("URL Processor Tool", () => {
         resourceId: "67890",
         resourceName: "Test Assignment",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/assignments/67890",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(false);
 
@@ -199,6 +206,7 @@ describe("URL Processor Tool", () => {
         resourceId: "test-page",
         resourceName: "Test Page",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/pages/test-page",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([
@@ -224,10 +232,8 @@ describe("URL Processor Tool", () => {
       const mockGetPageContent = await import("@/tools/pages-discussions");
       vi.mocked(mockGetPageContent.getPageContent).mockResolvedValue({
         title: "Test Page",
-        content: "<p>Page with embedded files</p>",
+        body: "<p>Page with embedded files</p>",
         url: "https://test.instructure.com/courses/12345/pages/test-page",
-        lastUpdated: "2024-01-01T00:00:00Z",
-        author: "Test User",
       });
 
       const result = await processCanvasURL(params);
@@ -249,6 +255,7 @@ describe("URL Processor Tool", () => {
         resourceId: "54321",
         resourceName: "Test Discussion",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/discussion_topics/54321",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
       vi.mocked(mockUrlProcessor.extractFileIdsFromHTML).mockReturnValue([]);
@@ -276,6 +283,7 @@ describe("URL Processor Tool", () => {
         resourceId: "test-page",
         resourceName: "Test Page",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/pages/test-page",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
 
@@ -303,6 +311,7 @@ describe("URL Processor Tool", () => {
         resourceId: "67890",
         resourceName: "Test Assignment",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/assignments/67890",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
 
@@ -327,17 +336,22 @@ describe("URL Processor Tool", () => {
         resourceId: "98765",
         resourceName: "test.pdf",
         baseUrl: "https://test.instructure.com",
+        url: "https://test.instructure.com/courses/12345/files/98765",
       });
       vi.mocked(mockUrlProcessor.validateCanvasURL).mockResolvedValue(true);
 
       const mockGetFileContent = await import("@/tools/files");
       vi.mocked(mockGetFileContent.getFileContent).mockResolvedValue({
-        id: "98765",
         name: "test.pdf",
         content: "File content",
-        contentType: "application/pdf",
-        size: 1024,
         url: "https://test.instructure.com/files/98765",
+        metadata: {
+          mode: "preview",
+          truncated: false,
+          cached: false,
+          processingTime: 50,
+          originalSize: 1024,
+        },
       });
 
       const result = await processCanvasURL(params);
