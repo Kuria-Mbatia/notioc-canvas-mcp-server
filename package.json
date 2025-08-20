@@ -23,7 +23,7 @@
     "build": "tsc",
     "start": "node dist/src/server.js",
     "dev": "node dist/src/server.js",
-    "test": "vitest",
+    "test": "vitest run",
     "coverage": "vitest run --coverage"
   },
   "keywords": [
