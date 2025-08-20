@@ -3,30 +3,30 @@
 // Notioc Canvas MCP Server
 // Model Context Protocol server for Canvas LMS integration
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ErrorCode,
   McpError,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/sdk/types";
 import dotenv from "dotenv";
 
 // Import our Canvas tools
-import { listCourses, CourseListParams } from "../tools/courses.js";
+import { listCourses, CourseListParams } from "@/tools/courses";
 import {
   listAssignments,
   getAssignmentDetails,
   AssignmentListParams,
-} from "../tools/assignments.js";
+} from "@/tools/assignments";
 import {
   searchFiles,
   getFileContent,
   readFileById,
   FileSearchParams,
   FileContentParams,
-} from "../tools/files.js";
+} from "@/tools/files";
 import {
   listPages,
   getPageContent,
@@ -36,12 +36,12 @@ import {
   PageContentParams,
   DiscussionsListParams,
   DiscussionContentParams,
-} from "../tools/pages-discussions.js";
+} from "@/tools/pages-discussions";
 import {
   postDiscussionReply,
   replyToDiscussionEntry,
   PostDiscussionReplyParams,
-} from "../tools/discussions.js";
+} from "@/tools/discussions";
 import {
   createConversation,
   replyToConversation,
@@ -50,7 +50,7 @@ import {
   SendMessageParams,
   ReplyToConversationParams,
   ListConversationsParams,
-} from "../tools/messages.js";
+} from "@/tools/messages";
 import {
   findPeopleInCourse,
   searchRecipients,
@@ -58,7 +58,7 @@ import {
   getMyProfile,
   FindPeopleParams,
   SearchRecipientsParams,
-} from "../tools/users.js";
+} from "@/tools/users";
 import {
   listQuizzes,
   getQuizDetails,
@@ -66,42 +66,39 @@ import {
   ListQuizzesParams,
   QuizDetailsParams,
   QuizSubmissionsParams,
-} from "../tools/quizzes.js";
+} from "@/tools/quizzes";
 import {
   listModules,
   getModuleItems,
   getModuleDetails,
   ListModulesParams,
   ModuleItemsParams,
-} from "../tools/modules.js";
+} from "@/tools/modules";
 import {
   getGrades,
   getGradebookCategories,
   GetGradesParams,
   GradebookCategoriesParams,
-} from "../tools/grades.js";
-import {
-  listCalendarEvents,
-  CalendarEventListParams,
-} from "../tools/calendar.js";
+} from "@/tools/grades";
+import { listCalendarEvents, CalendarEventListParams } from "@/tools/calendar";
 import {
   getAssignmentRubric,
   getRubricAnalysis,
   getAssignmentFeedback,
   RubricParams,
-} from "../tools/rubrics.js";
-import { downloadSubmissionFile } from "../tools/file-download.js";
+} from "@/tools/rubrics";
+import { downloadSubmissionFile } from "@/tools/file-download";
 import {
   getCourseNavigation,
   getCourseSyllabus,
   CourseStructureParams,
-} from "../tools/course-structure.js";
+} from "@/tools/course-structure";
 import {
   getSubmissionComments,
   getDetailedSubmission,
   GetSubmissionCommentsParams,
   GetDetailedSubmissionParams,
-} from "../tools/submission-comments.js";
+} from "@/tools/submission-comments";
 import {
   calculateCourseAnalytics,
   generateWhatIfScenarios,
@@ -109,20 +106,20 @@ import {
   CourseAnalyticsParams,
   WhatIfScenarioParams,
   GradeTrendsParams,
-} from "../tools/analytics.js";
+} from "@/tools/analytics";
 import {
   getQuizSubmissionContent,
   getUserQuizSubmissionHistory,
   QuizSubmissionContentParams,
-} from "../tools/quiz-submission-content.js";
+} from "@/tools/quiz-submission-content";
 import {
   getPreviousSubmissionContent,
   listSubmittedAssignments,
   PreviousSubmissionParams,
-} from "../tools/previous-submissions.js";
+} from "@/tools/previous-submissions";
 
 // Import custom logger that writes to stderr
-import { logger } from "../lib/logger.js";
+import { logger } from "@/lib/logger";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
