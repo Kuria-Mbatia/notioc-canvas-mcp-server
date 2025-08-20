@@ -9,6 +9,10 @@ export default defineConfig({
     typecheck: {
       tsconfig: "./tsconfig.test.json",
     },
+    coverage: {
+      reporter: ["text", "text-summary", "json-summary", "json"],
+      reportOnFailure: true,
+    },
   },
   resolve: {
     alias: {
