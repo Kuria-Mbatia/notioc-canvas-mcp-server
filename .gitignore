@@ -103,7 +103,7 @@ temp/
 .nuxt
 
 # rollup.js default build output
-dist/
+# (dist/ already covered above)
 
 # Uncomment the public line in if the project uses Gatsby
 # https://nextjs.org/docs/api-reference/next.config.js/introduction
@@ -113,6 +113,4 @@ dist/
 .out
 .storybook-out
 
-# Temporary folders
-tmp/
-temp/
+# Temporary folders already covered above

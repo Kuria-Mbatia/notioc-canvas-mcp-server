@@ -3,14 +3,14 @@
   "description": "Configuration for setting up Notioc Canvas integration with ChatGPT Custom Actions",
   "version": "1.0.0",
   "lastUpdated": "2025-05-23",
-  
+
   "deployment": {
     "localTestUrl": "http://localhost:3001",
     "productionUrl": "https://your-app.railway.app",
     "apiKey": "notioc-canvas-2024",
     "healthEndpoint": "/api/health"
   },
-  
+
   "customGpt": {
     "name": "Notioc Canvas Assistant",
     "description": "Your personal Canvas LMS assistant that can access course content, discussions, assignments, and files.",
@@ -23,7 +23,7 @@
     "instructions": "You are Notioc, a helpful Canvas LMS assistant. Always be conversational and proactive in offering related information.",
     "actionsSchemaFile": "openapi-schema.yaml"
   },
-  
+
   "tools": [
     {
       "name": "getting courses",
@@ -33,7 +33,7 @@
     },
     {
       "name": "getting pages",
-      "description": "Get pages in a Canvas course", 
+      "description": "Get pages in a Canvas course",
       "endpoint": "GET /api/courses/{courseId}/pages",
       "example": "What pages are in course 123456?"
     },
@@ -46,7 +46,7 @@
     {
       "name": "getting discussions",
       "description": "Get discussion topics in a Canvas course",
-      "endpoint": "GET /api/courses/{courseId}/discussions", 
+      "endpoint": "GET /api/courses/{courseId}/discussions",
       "example": "Show me discussions in my English course"
     },
     {
@@ -74,7 +74,7 @@
       "example": "Read the homework assignment PDF"
     }
   ],
-  
+
   "setup": {
     "steps": [
       "1. Set Canvas environment variables (CANVAS_BASE_URL, CANVAS_ACCESS_TOKEN)",
@@ -93,7 +93,7 @@
       ".env (environment configuration)"
     ]
   },
-  
+
   "testing": {
     "healthCheck": "curl -H 'x-api-key: notioc-canvas-2024' {deploymentUrl}/api/health",
     "sampleRequests": {
@@ -102,7 +102,7 @@
       "readPage": "GET /api/courses/123456/pages/syllabus"
     }
   },
-  
+
   "troubleshooting": {
     "commonIssues": [
       {
@@ -110,7 +110,7 @@
         "solution": "Check environment variables and run npm run build"
       },
       {
-        "issue": "API returns 401 Unauthorized", 
+        "issue": "API returns 401 Unauthorized",
         "solution": "Verify Canvas token and check API key in requests"
       },
       {

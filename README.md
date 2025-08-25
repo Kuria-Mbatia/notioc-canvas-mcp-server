@@ -7,6 +7,7 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 ## ✨ **What Makes This Special**
 
 ### 🚀 **Complete Canvas Integration**
+
 - **45 MCP Tools** covering every aspect of Canvas
 - **Real-time grade analytics** with "what-if" calculations
 - **Previous submission access** - review all your past work
@@ -17,27 +18,32 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 ### 🎯 **Key Features**
 
 **📊 Academic Analytics**
+
 - Grade tracking with performance insights
 - "What grade do I need on the final?" calculations
 - Course progress analysis and predictions
 
-**📄 Document Management** 
+**📄 Document Management**
+
 - Access all previous submissions and feedback
 - Extract text from 94+ document types via LlamaParse
 - Smart file search and content processing
 - OCR for images, transcription for audio files
 
 **🎓 Quiz & Study Tools**
+
 - Complete quiz review after submission
 - Question analysis with correct answers
 - Performance tracking across all quizzes
 
 **📅 Planning & Organization**
+
 - Calendar integration with due dates
 - Course navigation and module tracking
 - Syllabus analysis and policy extraction
 
 **💬 Communication**
+
 - Canvas messaging integration
 - Discussion participation
 - Professional email drafting
@@ -45,12 +51,14 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 ## 🚀 **Quick Start**
 
 ### **Prerequisites**
-- Node.js 18+ 
+
+- Node.js 18+
 - Canvas API access token
 - LlamaParse API key (for document processing)
 - Claude Desktop application
 
 ### **1. Installation**
+
 ```bash
 git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
 cd canvas-mcp-server
@@ -59,7 +67,9 @@ npm run build
 ```
 
 ### **2. Environment Setup**
+
 Create `.env` file:
+
 ```bash
 CANVAS_BASE_URL=https://your-school.instructure.com
 CANVAS_ACCESS_TOKEN=your_api_token_here
@@ -73,6 +83,7 @@ NODE_ENV=production
 ```
 
 **LlamaParse Configuration (Advanced Document Processing):**
+
 - `LLAMA_CLOUD_API_KEY`: API key from LlamaIndex Cloud for processing 94+ document types
 - `ENABLE_LLAMAPARSE=true`: Enable advanced document extraction
 - `LLAMA_PARSE_ALLOW_UPLOAD=true`: Allow uploading files to LlamaParse for processing
@@ -82,7 +93,9 @@ NODE_ENV=production
 > **📄 Document Support**: With LlamaParse enabled, the server can process PDFs, Word docs, Excel sheets, PowerPoints, images (OCR), audio files (transcription), and 80+ other formats with high accuracy.
 
 ### **3. Claude Desktop Integration**
+
 Add to Claude Desktop settings (`claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
@@ -99,20 +112,23 @@ Add to Claude Desktop settings (`claude_desktop_config.json`):
 ```
 
 > � **Need help?** Check out our detailed setup guides:
+>
 > - [📖 Claude Desktop Setup](./CLAUDE-SETUP.md)
-> - [🤖 ChatGPT Integration](./CHATGPT-SETUP.md) 
+> - [🤖 ChatGPT Integration](./CHATGPT-SETUP.md)
 > - [🔧 Custom GPT Setup](./CUSTOM-GPT-SETUP.md)
 
 ## 🛠️ **Available Tools (45 Total)**
 
 ### **📊 Grades & Analytics**
+
 - `get_grades` - Complete grade overview
-- `calculate_course_analytics` - Performance insights  
+- `calculate_course_analytics` - Performance insights
 - `generate_what_if_scenarios` - Grade predictions
 - `get_grade_trends` - Progress tracking
 - `get_gradebook_categories` - Weighted categories
 
 ### **📝 Assignments & Submissions**
+
 - `get_assignments` - Assignment listings
 - `get_assignment_details` - Detailed assignment info
 - `get_previous_submission_content` - Review past work
@@ -122,12 +138,14 @@ Add to Claude Desktop settings (`claude_desktop_config.json`):
 - `get_submission_comments` - Detailed feedback
 
 ### **🎓 Quiz & Study Tools**
+
 - `list_quizzes` - Quiz listings
 - `get_quiz_details` - Quiz information
 - `get_quiz_submissions` - Your submissions
 - `get_quiz_submission_content` - Complete quiz review
 
 ### **📅 Planning & Navigation**
+
 - `get_calendar_events` - Due dates and events
 - `list_modules` - Course modules
 - `get_module_details` - Module information
@@ -135,50 +153,56 @@ Add to Claude Desktop settings (`claude_desktop_config.json`):
 - `get_course_syllabus` - Syllabus analysis
 
 ### **📁 Content & Files**
+
 - `find_files` - Smart file search
 - `read_file` - File content processing
 - `process_file` - AI-powered file analysis
 - `smart_search` - Intelligent content search
 
 ### **💬 Communication**
+
 - `send_message` - Canvas messaging
 - `list_conversations` - Message history
 - `get_discussions` - Discussion access
 - `post_discussion_reply` - Participate in discussions
 
 ### **🎯 Rubrics & Feedback**
+
 - `get_assignment_rubric` - Rubric analysis
 - `get_rubric_analysis` - Performance insights
 
 ## � **Example Conversations**
 
 ### **Academic Performance**
-> *"What's my current grade in Computer Engineering and what do I need on the final to get an A?"*
 
-> *"Show me all assignments due this week across my courses with urgency levels"*
+> _"What's my current grade in Computer Engineering and what do I need on the final to get an A?"_
 
-> *"Review my last physics quiz - what did I get wrong and help me study for the next one"*
+> _"Show me all assignments due this week across my courses with urgency levels"_
 
-### **Assignment Management**  
-> *"Find and process all files from my Math 451 homework submissions"*
+> _"Review my last physics quiz - what did I get wrong and help me study for the next one"_
 
-> *"What feedback did my professor give on my latest programming assignment?"*
+### **Assignment Management**
 
-> *"Download my submitted file from yesterday's physics recitation"*
+> _"Find and process all files from my Math 451 homework submissions"_
+
+> _"What feedback did my professor give on my latest programming assignment?"_
+
+> _"Download my submitted file from yesterday's physics recitation"_
 
 ### **Course Planning**
-> *"What modules do I need to complete in Operating Systems and what are the prerequisites?"*
 
-> *"Extract the grading policy from my course syllabi"*
+> _"What modules do I need to complete in Operating Systems and what are the prerequisites?"_
 
-> *"Show my progress across all courses and identify areas needing attention"*
+> _"Extract the grading policy from my course syllabi"_
+
+> _"Show my progress across all courses and identify areas needing attention"_
 
 ## 🎯 **Perfect For**
 
 ✅ **Students** seeking academic excellence  
 ✅ **Researchers** managing course workflows  
 ✅ **Anyone** wanting smarter Canvas interaction  
-✅ **Power users** needing advanced academic analytics  
+✅ **Power users** needing advanced academic analytics
 
 ## 🤝 **Contributing**
 

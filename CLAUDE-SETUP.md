@@ -5,6 +5,7 @@ This guide will walk you through setting up the Notioc Canvas MCP Server for use
 ## Prerequisites
 
 Before you begin, make sure you have:
+
 - Claude Desktop application installed
 - Node.js 18+ installed
 - Canvas LMS access with API token capabilities
@@ -40,6 +41,7 @@ cp .env.example .env
 ```
 
 Example `.env` file:
+
 ```
 CANVAS_BASE_URL=https://university.instructure.com
 CANVAS_ACCESS_TOKEN=1234~abcdefghijklmnopqrstuvwxyz
@@ -62,6 +64,7 @@ You should see a list of available tools in the response.
 Claude Desktop uses a configuration file to integrate with MCP servers. You need to create or edit this file:
 
 **1. Location of Configuration File:**
+
 - **macOS**: `~/Library/Application Support/Anthropic/claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Anthropic\claude\claude_desktop_config.json`
 - **Linux**: `~/.config/Anthropic/claude/claude_desktop_config.json`
@@ -87,6 +90,7 @@ Add this configuration to the file (create the file if it doesn't exist):
 ```
 
 Make these important changes:
+
 - Replace `/absolute/path/to/canvas-mcp-server` with the actual full path to your server directory
 - Replace the environment variables with your actual values
 - You can copy these from your `.env` file
@@ -94,6 +98,7 @@ Make these important changes:
 ### 5. Restart Claude Desktop
 
 After configuring the MCP server:
+
 1. Close Claude Desktop completely
 2. Restart Claude Desktop to load the new configuration
 
@@ -154,6 +159,7 @@ If you encounter issues:
 ## Next Steps
 
 After setting up the integration:
+
 1. Test with different types of Canvas content
 2. Explore the different tool capabilities
 3. Try accessing files and documents to see how LlamaParse extraction works

@@ -2,7 +2,9 @@
   "mcpServers": {
     "notioc-canvas-local": {
       "command": "node",
-      "args": ["/Users/kuriambatia/Desktop/notioc-canvas-mcp-server/dist/mcp.js"],
+      "args": [
+        "/Users/kuriambatia/Desktop/notioc-canvas-mcp-server/dist/mcp.js"
+      ],
       "cwd": "/Users/kuriambatia/Desktop/notioc-canvas-mcp-server",
       "env": {
         "NODE_ENV": "production",
@@ -10,7 +12,7 @@
         "CANVAS_ACCESS_TOKEN": "1050~znDxm6xL39ePTX83twMaa7AzzPwCxeKCTckmXrCnFhZN2BJyPT7DDRZhew2v9thy",
         "LLAMA_CLOUD_API_KEY": "llx-QRRNk9U6q6A1lv6Y0ai0WBNitORbdiRRvbhLzb2Rj3xGfvjv",
         "ENABLE_LLAMAPARSE": "true",
-        "LLAMA_ONLY": "true", 
+        "LLAMA_ONLY": "true",
         "LLAMA_PARSE_ALLOW_UPLOAD": "true",
         "LLAMA_PARSE_TIMEOUT_MS": "300000"
       }

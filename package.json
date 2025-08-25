@@ -22,7 +22,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/server.js",
-    "dev": "node dist/src/server.js"
+    "dev": "node dist/src/server.js",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "mcp",
@@ -56,6 +58,9 @@
     "@types/node": "^22.15.21",
     "@types/parse-link-header": "^2.0.3",
     "@types/pdf-parse": "^1.1.5",
-    "typescript": "^5.8.3"
+    "@vitest/coverage-v8": "^3.2.4",
+    "prettier": "3.6.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }
