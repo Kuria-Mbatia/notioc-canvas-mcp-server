@@ -216,6 +216,130 @@ export const TOOL_HELP_DATABASE: Record<string, ToolHelpInfo> = {
     ]
   },
   
+  get_files: {
+    name: "get_files",
+    description: "📁 Comprehensive file browser with folder hierarchy, metadata, and LlamaParse processing indicators",
+    category: "course_content",
+    useCases: [
+      "User asks 'what files are in this course?' or 'show me the course files'",
+      "User wants to find documents to read, analyze, or process",
+      "User asks about lecture notes, readings, or course materials",
+      "You need to see which files can be processed by LlamaParse",
+      "User wants to explore folder structure (Week 1, Week 2, etc.)",
+      "User asks 'which files should I read?' or 'what documents are available?'"
+    ],
+    examples: [
+      {
+        scenario: "User wants to browse course files",
+        query: "Show me all files in my Data Science course",
+        expected: "Returns organized file list with folders, metadata, processing capabilities, and suggestions"
+      },
+      {
+        scenario: "User wants to find specific folder",
+        query: "What's in the Week 1 readings folder?",
+        expected: "Navigates to folder, shows PDFs and documents with processing recommendations"
+      },
+      {
+        scenario: "User wants processable documents",
+        query: "Which documents can I analyze?",
+        expected: "Lists files with LlamaParse support indicators, recommends syllabus and lectures first"
+      },
+      {
+        scenario: "User asks about lectures",
+        query: "Are there any lecture slides available?",
+        expected: "Shows presentation files with sizes, dates, and processing options"
+      }
+    ],
+    parameters: [
+      {
+        name: "courseId",
+        type: "string",
+        required: false,
+        description: "Course ID (numeric)"
+      },
+      {
+        name: "courseName",
+        type: "string",
+        required: false,
+        description: "Course name (e.g., 'Data Science 410') - alternative to courseId"
+      },
+      {
+        name: "folderId",
+        type: "string",
+        required: false,
+        description: "Browse specific folder by ID"
+      },
+      {
+        name: "folderPath",
+        type: "string",
+        required: false,
+        description: "Browse by path (e.g., 'Week 1/Readings')"
+      },
+      {
+        name: "searchTerm",
+        type: "string",
+        required: false,
+        description: "Search file names"
+      },
+      {
+        name: "contentTypes",
+        type: "array",
+        required: false,
+        description: "Filter by MIME types (e.g., ['application/pdf'])"
+      },
+      {
+        name: "groupBy",
+        type: "string",
+        required: false,
+        description: "'type' (default), 'folder', or 'none'"
+      },
+      {
+        name: "sortBy",
+        type: "string",
+        required: false,
+        description: "'name' (default), 'size', 'date', or 'type'"
+      },
+      {
+        name: "includeFromModules",
+        type: "boolean",
+        required: false,
+        description: "Include files from modules (default: true)"
+      }
+    ],
+    relatedTools: ["read_file_by_id", "find_files", "list_modules", "get_module_items", "smart_search"],
+    workflows: [
+      "1. get_files to browse → 2. read_file_by_id to process specific file",
+      "1. get_files with folderPath to navigate → 2. explore subfolders",
+      "1. list_modules to see structure → 2. get_files for detailed file info",
+      "1. get_files to find sylllabus → 2. read_file_by_id to process it"
+    ],
+    tips: [
+      "🔥 BETTER THAN find_files - shows hierarchy, metadata, and processing capability",
+      "Always shows which files support LlamaParse (PDF, Office docs, images, audio)",
+      "Provides smart recommendations (e.g., 'Start with Syllabus.pdf')",
+      "Groups files by type (Documents, Spreadsheets, Images, etc.) for clarity",
+      "Shows folder navigation with breadcrumbs and parent folders",
+      "Displays file sizes and last updated dates",
+      "Estimates processing time for large files",
+      "Works even if Canvas Files tab is disabled (pulls from modules too)",
+      "Use folderPath for friendly navigation (e.g., 'Week 1') instead of numeric IDs"
+    ],
+    commonErrors: [
+      {
+        error: "Course not found",
+        solution: "Use get_current_courses or get_courses first to find the course"
+      },
+      {
+        error: "Folder path not found",
+        solution: "Check folder name spelling, or use get_files without path to see available folders"
+      },
+      {
+        error: "No files found",
+        solution: "Try includeFromModules: true to also check course modules, or files may be in subfolders"
+      }
+    ]
+  },
+  
   calculate_course_analytics: {
     name: "calculate_course_analytics",
     description: "Comprehensive grade analysis including current grades, category breakdown, and performance insights",

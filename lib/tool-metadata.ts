@@ -81,6 +81,7 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
     label: "File Management",
     description: "Search, read, and process course files and documents",
     tools: [
+      "get_files",
       "find_files",
       "read_file",
       "read_file_by_id",

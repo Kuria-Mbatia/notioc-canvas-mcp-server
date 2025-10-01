@@ -17,6 +17,7 @@ import dotenv from 'dotenv';
 import { listCourses, CourseListParams } from './tools/courses.js';
 import { listAssignments, getAssignmentDetails, AssignmentListParams } from './tools/assignments.js';
 import { searchFiles, getFileContent, readFileById, FileSearchParams, FileContentParams } from './tools/files.js';
+import { getFiles, GetFilesParams } from './lib/files-enhanced.js';
 import { 
   listPages, getPageContent, 
   listDiscussions, getDiscussionContent,
@@ -510,6 +511,88 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           },
           required: ['fileId'],
+        },
+      },
+      {
+        name: 'get_files',
+        description: `Comprehensive file browser for Canvas courses with folder hierarchy, rich metadata, and LlamaParse processing indicators.
+
+Shows:
+• Organized folder structure with navigation
+• File details: size, type, dates, lock status  
+• Which files can be processed by LlamaParse (PDF, Office, images, audio)
+• Processing recommendations and time estimates
+• Summary statistics and actionable suggestions
+
+Use this to:
+• Explore course file structure
+• Find documents to process and analyze
+• Identify relevant materials for assignments
+• Check which files support advanced processing
+• Get processing recommendations
+
+Better than find_files because it shows:
+✓ Folder hierarchy (not flat list)
+✓ Processing capability (LlamaParse support)
+✓ Rich metadata (size, type, dates)
+✓ Smart recommendations (what to process first)
+✓ Navigation context (parent folders, breadcrumb)`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            courseName: {
+              type: 'string',
+              description: 'The course name (e.g., "Data Science 410"). If provided, courseId is not required.',
+            },
+            folderId: {
+              type: 'string',
+              description: 'Browse a specific folder by ID. Omit to browse root folder.',
+            },
+            folderPath: {
+              type: 'string',
+              description: 'Browse by folder path (e.g., "Week 1/Readings"). Alternative to folderId.',
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'Include files from subfolders (default: true)',
+              default: true,
+            },
+            contentTypes: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Filter by content types (e.g., ["application/pdf", "image"])',
+            },
+            searchTerm: {
+              type: 'string',
+              description: 'Search file names (fuzzy matching)',
+            },
+            groupBy: {
+              type: 'string',
+              enum: ['folder', 'type', 'none'],
+              description: 'How to organize results (default: type)',
+              default: 'type',
+            },
+            sortBy: {
+              type: 'string',
+              enum: ['name', 'size', 'date', 'type'],
+              description: 'Sort order (default: name)',
+              default: 'name',
+            },
+            showHidden: {
+              type: 'boolean',
+              description: 'Include hidden files (default: false)',
+              default: false,
+            },
+            includeFromModules: {
+              type: 'boolean',
+              description: 'Also include files referenced in course modules (default: true)',
+              default: true,
+            },
+          },
         },
       },
         {
@@ -1977,6 +2060,202 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 text: `**${fileContent.name}**\n\n${fileContent.content}\n\n[Download Link](${fileContent.url})`
             }
           ]
+        };
+      }
+
+      case 'get_files': {
+        const inputParams = input as Partial<GetFilesParams>;
+        const result = await getFiles({
+          ...getCanvasConfig(),
+          ...inputParams
+        });
+
+        // Format response with rich visual indicators
+        let markdown = '';
+        
+        // Header with breadcrumb
+        if (result.breadcrumb.length > 0) {
+          const lastCrumb = result.breadcrumb[result.breadcrumb.length - 1];
+          markdown += `📁 **${lastCrumb.toUpperCase()}**\n`;
+          markdown += `${'═'.repeat(50)}\n\n`;
+          markdown += `📍 Location: ${result.breadcrumb.join(' / ')}\n\n`;
+        } else {
+          markdown += `📁 **COURSE FILES**\n`;
+          markdown += `${'═'.repeat(50)}\n\n`;
+        }
+        
+        // Summary statistics
+        markdown += `📊 **SUMMARY**\n`;
+        markdown += `${'─'.repeat(30)}\n`;
+        markdown += `  Files: ${result.fileCount} (${result.totalSizeFormatted})\n`;
+        if (result.llamaParseEnabled) {
+          markdown += `  Processable: ${result.processableCount} files ✓\n`;
+        }
+        if (result.folderCount > 0) {
+          markdown += `  Folders: ${result.folderCount}\n`;
+        }
+        markdown += `\n`;
+        
+        // Show folders first
+        if (result.folders.length > 0) {
+          markdown += `📁 **FOLDERS** (${result.folders.length})\n`;
+          markdown += `${'─'.repeat(30)}\n`;
+          
+          // Sort folders by position/name
+          const sortedFolders = [...result.folders].sort((a, b) => {
+            if (a.position !== b.position) return a.position - b.position;
+            return a.name.localeCompare(b.name);
+          });
+          
+          for (const folder of sortedFolders) {
+            const lockIcon = folder.locked ? '🔒 ' : '';
+            const hiddenIcon = folder.hidden ? '👁️‍🗨️ ' : '';
+            markdown += `  📁 ${lockIcon}${hiddenIcon}${folder.name}`;
+            if (folder.filesCount > 0 || folder.foldersCount > 0) {
+              const counts = [];
+              if (folder.filesCount > 0) counts.push(`${folder.filesCount} files`);
+              if (folder.foldersCount > 0) counts.push(`${folder.foldersCount} folders`);
+              markdown += ` (${counts.join(', ')})`;
+            }
+            markdown += `\n     To browse: Use get_files with folderId: "${folder.id}"\n`;
+          }
+          markdown += `\n`;
+        }
+        
+        // Group files by category
+        if (result.files.length > 0) {
+          const { getFileCategory, getFileIcon, getCategoryName } = await import('./lib/files-enhanced.js');
+          
+          // Group files by category
+          const filesByCategory = new Map<string, typeof result.files>();
+          for (const file of result.files) {
+            const category = getFileCategory({ contentType: file.contentType, name: file.name });
+            if (!filesByCategory.has(category)) {
+              filesByCategory.set(category, []);
+            }
+            filesByCategory.get(category)!.push(file);
+          }
+          
+          // Display each category
+          const categoryOrder = ['documents', 'presentations', 'spreadsheets', 'images', 'audio', 'video', 'text', 'code', 'archives', 'other'];
+          
+          for (const category of categoryOrder) {
+            if (!filesByCategory.has(category)) continue;
+            
+            const categoryFiles = filesByCategory.get(category)!;
+            const icon = getFileIcon(category);
+            const name = getCategoryName(category);
+            const hasProcessable = categoryFiles.some(f => f.llamaParseSupported);
+            
+            markdown += `${icon} **${name.toUpperCase()}** (${categoryFiles.length} ${categoryFiles.length === 1 ? 'file' : 'files'}`;
+            if (hasProcessable && result.llamaParseEnabled) {
+              markdown += ` - LlamaParse Supported ✓`;
+            }
+            markdown += `)\n`;
+            markdown += `${'─'.repeat(50)}\n`;
+            
+            // Sort files within category
+            const sortedFiles = [...categoryFiles].sort((a, b) => {
+              if (inputParams.sortBy === 'size') return inputParams.sortOrder === 'desc' ? b.size - a.size : a.size - b.size;
+              if (inputParams.sortBy === 'date') return inputParams.sortOrder === 'desc' ? 
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() :
+                new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+              return a.displayName.localeCompare(b.displayName);
+            });
+            
+            // Show top files (limit to prevent token overflow)
+            const maxFilesPerCategory = 10;
+            const filesToShow = sortedFiles.slice(0, maxFilesPerCategory);
+            
+            for (const file of filesToShow) {
+              const lockIcon = file.locked || file.lockedForUser ? '🔒 ' : '';
+              const hiddenIcon = file.hidden || file.hiddenForUser ? '👁️‍🗨️ ' : '';
+              
+              markdown += `  ${icon} ${lockIcon}${hiddenIcon}${file.displayName}\n`;
+              markdown += `     Size: ${file.sizeFormatted} | Updated: ${new Date(file.updatedAt).toLocaleDateString()}\n`;
+              
+              if (file.moduleName) {
+                markdown += `     Module: ${file.moduleName}\n`;
+              }
+              
+              if (file.llamaParseSupported && result.llamaParseEnabled) {
+                if (file.processingRecommendation === 'highly-recommended') {
+                  markdown += `     🔥 **Highly recommended for processing**\n`;
+                } else if (file.processingRecommendation === 'recommended') {
+                  markdown += `     ✓ Recommended for processing\n`;
+                } else {
+                  markdown += `     ✓ Can be processed\n`;
+                }
+                if (file.estimatedProcessingTime) {
+                  markdown += `     Est. time: ${file.estimatedProcessingTime}\n`;
+                }
+              }
+              
+              if (file.lockedForUser && file.lockExplanation) {
+                markdown += `     ⚠️ ${file.lockExplanation}\n`;
+              }
+              
+              markdown += `     To process: Use read_file_by_id with fileId: "${file.id}"\n`;
+              markdown += `\n`;
+            }
+            
+            if (sortedFiles.length > maxFilesPerCategory) {
+              markdown += `  ... and ${sortedFiles.length - maxFilesPerCategory} more ${category} files\n`;
+            }
+            
+            markdown += `\n`;
+          }
+        } else {
+          markdown += `*No files found in this location*\n\n`;
+        }
+        
+        // Navigation hints
+        if (result.parentFolder || result.folders.length > 0) {
+          markdown += `🎯 **NAVIGATION**\n`;
+          markdown += `${'─'.repeat(30)}\n`;
+          
+          if (result.parentFolder) {
+            markdown += `  ⬆️  Parent: Use get_files with folderId: "${result.parentFolder.id}"\n`;
+          }
+          if (!inputParams.folderId && !inputParams.folderPath) {
+            markdown += `  🏠 You are at the root folder\n`;
+          } else {
+            markdown += `  🏠 Root: Use get_files without folderId/folderPath\n`;
+          }
+          if (result.folders.length > 0) {
+            markdown += `  📁 Browse folders above with get_files and folderId\n`;
+          }
+          markdown += `\n`;
+        }
+        
+        // Suggestions
+        if (result.suggestions.length > 0) {
+          markdown += `💡 **SUGGESTIONS**\n`;
+          markdown += `${'─'.repeat(30)}\n`;
+          for (const suggestion of result.suggestions) {
+            markdown += `  • ${suggestion}\n`;
+          }
+          markdown += `\n`;
+        }
+        
+        // LlamaParse status
+        if (!result.llamaParseEnabled && result.fileCount > 0) {
+          markdown += `ℹ️ **Note:** LlamaParse is not enabled. Set ENABLE_LLAMAPARSE=true and LLAMA_CLOUD_API_KEY to process documents.\n`;
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: markdown
+          }],
+          isError: false,
+          _meta: {
+            fileCount: result.fileCount,
+            processableCount: result.processableCount,
+            totalSize: result.totalSize,
+            folderCount: result.folderCount,
+            llamaParseEnabled: result.llamaParseEnabled
+          }
         };
       }
 

@@ -464,6 +464,10 @@ function shouldUseLlamaParse(fileName: string, contentType: string | null): bool
       'application/xml',
       'text/xml',
       
+      // Notebooks
+      'application/x-ipynb+json',
+      'application/json', // Some servers serve .ipynb as generic JSON
+      
       // Image formats (for OCR)
       'image/jpeg',
       'image/png',

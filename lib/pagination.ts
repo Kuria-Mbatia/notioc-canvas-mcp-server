@@ -109,14 +109,30 @@ export interface CanvasAssignment {
 export interface CanvasFile {
   id: number;
   display_name: string;
+  filename: string;
   url: string;
   content_type: string;
+  'content-type': string;
+  mime_class: string;
   size: number;
   created_at: string;
   updated_at: string;
+  modified_at: string;
   html_url?: string;
   thumbnail_url?: string;
+  preview_url?: string;
   folder_id?: number;
+  locked: boolean;
+  locked_for_user: boolean;
+  lock_explanation?: string;
+  lock_info?: any;
+  hidden: boolean;
+  hidden_for_user: boolean;
+  unlock_at?: string;
+  lock_at?: string;
+  visibility_level?: string;
+  uuid?: string;
+  media_entry_id?: string;
 }
 
 export interface CanvasPage {

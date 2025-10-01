@@ -49,6 +49,8 @@ const SUPPORTED_EXTENSIONS = new Set([
   'xlsx', 'xls', 'xlsm', 'xlsb', 'xlw', 'csv', 'dif', 'sylk', 'slk', 'prn', 'numbers', 'et', 'ods', 
   'fods', 'uos1', 'uos2', 'dbf', 'wk1', 'wk2', 'wk3', 'wk4', 'wks', '123', 'wq1', 'wq2', 'wb1', 
   'wb2', 'wb3', 'qpw', 'xlr', 'eth', 'tsv',
+  // Notebooks
+  'ipynb',
   // Audio (≤20MB)
   'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'
 ]);

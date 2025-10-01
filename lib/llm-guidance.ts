@@ -35,8 +35,9 @@ You are interacting with a comprehensive Canvas LMS integration through 44+ spec
 **Use When**: Reviewing past quizzes, studying from assessments, analyzing quiz performance
 
 ### 📁 File Management
-**Tools**: find_files, read_file, read_file_by_id, process_file, smart_search
+**Tools**: get_files ⭐, find_files, read_file, read_file_by_id, process_file, smart_search
 **Use When**: Accessing lecture materials, reading documents, finding course files
+**⚠️ IMPORTANT**: Use get_files instead of find_files for better context and processing recommendations!
 
 ### 📖 Course Content
 **Tools**: get_pages, read_page, get_discussions, read_discussion, post_discussion_reply
@@ -100,8 +101,24 @@ You are interacting with a comprehensive Canvas LMS integration through 44+ spec
 ### "Find lecture slides about [topic]"
 \`\`\`
 1. get_courses → find course (if not specified)
-2. smart_search with query="[topic] slides" → intelligent discovery
-3. read_file_by_id → read found files if needed
+2. get_files → browse folders, see all files with metadata
+3. read_file_by_id → read specific files identified in step 2
+\`\`\`
+
+### "What documents should I read for this week?"
+\`\`\`
+1. get_courses → find course
+2. get_files with folderPath: "Week X" → see organized files with recommendations
+3. Follow suggestions (e.g., syllabus first, then lecture notes)
+4. read_file_by_id → process recommended files
+\`\`\`
+
+### "Browse course materials"
+\`\`\`
+1. get_courses → find course
+2. get_files → see root folder with all subfolders
+3. get_files with folderId or folderPath → navigate to specific folder
+4. read_file_by_id → process files as needed
 \`\`\`
 
 ### "What's the course structure and grading policy?"
