@@ -20,9 +20,28 @@
     "lib": "lib"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/src/server.js",
-    "dev": "node dist/src/server.js"
+    "dev": "tsx watch src/server.ts",
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts",
+    "type-check": "tsc --noEmit",
+    "docker:build": "docker build -t canvas-mcp-server .",
+    "docker:run": "docker run --env-file .env canvas-mcp-server",
+    "docker:dev": "docker-compose up --build",
+    "docker:prod": "docker-compose -f docker-compose.yml up --build canvas-mcp-prod",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:scan": "npx audit-ci --moderate",
+    "clean": "rm -rf dist && rm -rf node_modules/.cache",
+    "prepare": "npm run build",
+    "health-check": "node dist/src/health-check.js"
   },
   "keywords": [
     "mcp",
@@ -53,9 +72,20 @@
     "zod": "^3.25.23"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.5",
     "@types/node": "^22.15.21",
     "@types/parse-link-header": "^2.0.3",
     "@types/pdf-parse": "^1.1.5",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "eslint": "^8.50.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.3",
+    "ts-jest": "^29.1.1",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^3.13.0",
     "typescript": "^5.8.3"
   }
 }

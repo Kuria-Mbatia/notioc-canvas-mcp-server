@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "notioc-canvas": {
+      "command": "node",
+      "args": ["/path/to/your/project/dist/mcp.js"],
+      "cwd": "/path/to/your/project",
+      "env": {
+        "NODE_ENV": "production",
+        "CANVAS_BASE_URL": "https://your-canvas-instance.instructure.com",
+        "CANVAS_ACCESS_TOKEN": "your_canvas_access_token_here"
+      }
+    }
+  }
+}

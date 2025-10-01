@@ -39,26 +39,13 @@ coverage/
 *.swo
 *~
 
-# Prevent test/debug files from being added
-test-*.js
-debug-*.js
-*exploit*.js
-advanced-*.js
-analyze-*.js
-bypass-*.js
-ultimate-*.js
-verify-*.js
-check-*.js
-privilege-*.js
-run-*.js
-graphql-*.js
-
-# Prevent unwanted documentation
-PHASE*.md
-PREVIOUS-*.md
-QUIZ-*.md
-canvas-security-*.md
-legitimate-*.md
+# Temporary and backup files
+README-OLD.md
+README-NEW.md
+*-backup.*
+*.backup
+*-old.*
+*.old
 
 # OS generated files
 .DS_Store
@@ -92,27 +79,15 @@ temp/
 # dotenv environment variables file
 .env.test
 
-# parcel-bundler cache (https://parceljs.org/)
+# Docker volumes
+docker-volumes/
+
+# Cache directories
 .cache
 .parcel-cache
 
-# next.js build output
+# Build outputs
 .next
-
-# nuxt.js build output
 .nuxt
-
-# rollup.js default build output
-dist/
-
-# Uncomment the public line in if the project uses Gatsby
-# https://nextjs.org/docs/api-reference/next.config.js/introduction
-# public
-
-# Storybook build outputs
 .out
 .storybook-out
-
-# Temporary folders
-tmp/
-temp/

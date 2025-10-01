@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Development Environment
+  canvas-mcp-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: canvas-mcp-development
+    environment:
+      - NODE_ENV=development
+      - DEBUG=canvas-mcp:*
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - canvas-mcp-data:/app/data
+      - canvas-mcp-logs:/app/logs
+    working_dir: /app
+    command: npm run dev
+    networks:
+      - canvas-mcp-network
+    restart: unless-stopped
+    profiles:
+      - dev
+    labels:
+      - "canvas-mcp.env=development"
+      - "canvas-mcp.service=mcp-server"
+
+  # Production Environment
+  canvas-mcp-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: canvas-mcp-production
+    environment:
+      - NODE_ENV=production
+      - CANVAS_API_URL=${CANVAS_API_URL}
+      - CANVAS_ACCESS_TOKEN=${CANVAS_ACCESS_TOKEN}
+    volumes:
+      - canvas-mcp-data:/app/data
+      - canvas-mcp-logs:/app/logs
+    networks:
+      - canvas-mcp-network
+    restart: unless-stopped
+    profiles:
+      - prod
+    labels:
+      - "canvas-mcp.env=production"
+      - "canvas-mcp.service=mcp-server"
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Health check: MCP Server running')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Standalone MCP Server (for Claude Desktop integration)
+  canvas-mcp-standalone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: canvas-mcp-standalone
+    environment:
+      - NODE_ENV=production
+      - MCP_MODE=standalone
+      - CANVAS_API_URL=${CANVAS_API_URL}
+      - CANVAS_ACCESS_TOKEN=${CANVAS_ACCESS_TOKEN}
+    volumes:
+      - canvas-mcp-data:/app/data
+      - canvas-mcp-logs:/app/logs
+      - ${HOME}/.config/claude:/app/claude-config:ro
+    networks:
+      - canvas-mcp-network
+    restart: unless-stopped
+    profiles:
+      - standalone
+    labels:
+      - "canvas-mcp.env=standalone"
+      - "canvas-mcp.service=mcp-server"
+
+# Named volumes for persistent data
+volumes:
+  canvas-mcp-data:
+    driver: local
+    labels:
+      - "canvas-mcp.volume=data"
+  canvas-mcp-logs:
+    driver: local
+    labels:
+      - "canvas-mcp.volume=logs"
+
+# Custom network for service communication
+networks:
+  canvas-mcp-network:
+    driver: bridge
+    labels:
+      - "canvas-mcp.network=main"

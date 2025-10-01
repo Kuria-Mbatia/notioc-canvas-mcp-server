@@ -2,10 +2,23 @@
   "mcpServers": {
     "notioc-canvas": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-server/src/server.js"],
+      "args": ["/path/to/your/project/dist/mcp.js"],
+      "cwd": "/path/to/your/project",
       "env": {
+        "NODE_ENV": "production",
         "CANVAS_BASE_URL": "https://your-canvas-instance.instructure.com",
-        "CANVAS_ACCESS_TOKEN": "your-canvas-access-token-here"
+        "CANVAS_ACCESS_TOKEN": "your_canvas_access_token_here",
+        "LLAMA_CLOUD_API_KEY": "your_llamaparse_api_key_here",
+        "ENABLE_LLAMAPARSE": "true",
+        "LLAMA_ONLY": "true",
+        "LLAMA_PARSE_ALLOW_UPLOAD": "true",
+        "LLAMA_PARSE_TIMEOUT_MS": "300000",
+        "OPENROUTER_API_KEY": "your_openrouter_key_here",
+        "SMALL_MODEL_ENABLED": "true",
+        "SMART_SEARCH_MAX_RESULTS": "5",
+        "SMART_SEARCH_RETURN_MODE": "refs",
+        "FILE_CONTENT_DEFAULT_MODE": "preview",
+        "FILE_CONTENT_MAX_CHARS": "1500"
       }
     }
   }

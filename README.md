@@ -1,197 +1,212 @@
-# 🎓 Notioc Canvas MCP Server
+# Notioc Canvas MCP Server
 
-> **The AI-powered Canvas assistant that transforms your academic experience**
+**The AI-powered Canvas assistant that transforms your academic experience**
 
-A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LMS integration through Claude Desktop. Turn your Canvas data into intelligent academic insights with 45 powerful tools and natural language interactions.
+A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LMS integration through Claude Desktop. Turn your Canvas data into intelligent academic insights with 44 powerful tools and natural language interactions.
 
-## ✨ **What Makes This Special**
+## What Makes This Special
 
-### 🚀 **Complete Canvas Integration**
-- **45 MCP Tools** covering every aspect of Canvas
+### Complete Canvas Integration
+- **44 MCP Tools** covering every aspect of Canvas
 - **Real-time grade analytics** with "what-if" calculations
 - **Previous submission access** - review all your past work
 - **Quiz content analysis** - study from completed quizzes
 - **Advanced document processing** - extract content from 94+ file types (PDF, DOCX, XLSX, PPTX, images, audio)
 - **AI-powered insights** through Claude integration
 
-### 🎯 **Key Features**
+### Key Features
 
-**📊 Academic Analytics**
+**Academic Analytics**
 - Grade tracking with performance insights
 - "What grade do I need on the final?" calculations
 - Course progress analysis and predictions
 
-**📄 Document Management** 
+**Document Management** 
 - Access all previous submissions and feedback
 - Extract text from 94+ document types via LlamaParse
 - Smart file search and content processing
 - OCR for images, transcription for audio files
 
-**🎓 Quiz & Study Tools**
+**Quiz & Study Tools**
 - Complete quiz review after submission
 - Question analysis with correct answers
 - Performance tracking across all quizzes
 
-**📅 Planning & Organization**
+**Planning & Organization**
 - Calendar integration with due dates
 - Course navigation and module tracking
 - Syllabus analysis and policy extraction
 
-**💬 Communication**
+**Communication**
 - Canvas messaging integration
 - Discussion participation
 - Professional email drafting
 
-## 🚀 **Quick Start**
+## Quick Start
 
-### **Prerequisites**
-- Node.js 18+ 
-- Canvas API access token
-- LlamaParse API key (for document processing)
-- Claude Desktop application
+### Easy Setup (3 Steps)
 
-### **1. Installation**
+1. **See [SETUP.md](SETUP.md) for complete installation guide**
+2. **Configure your Canvas API credentials**  
+3. **Connect with Claude Desktop**
+
+### Docker Setup (Recommended)
+
 ```bash
-git clone https://github.com/notioc/canvas-mcp-server.git
-cd canvas-mcp-server
-npm install
-npm run build
+# 1. Copy environment template
+cp .env.docker .env
+
+# 2. Edit .env with your Canvas credentials
+# 3. Start the server
+./docker.sh prod     # macOS/Linux  
+docker.bat prod      # Windows
 ```
 
-### **2. Environment Setup**
-Create `.env` file:
+### Manual Installation
+
 ```bash
-CANVAS_BASE_URL=https://your-school.instructure.com
-CANVAS_ACCESS_TOKEN=your_api_token_here
-
-# LlamaParse for document processing (94+ file types)
-LLAMA_CLOUD_API_KEY=your_llamaparse_api_key_here
-ENABLE_LLAMAPARSE=true
-LLAMA_PARSE_ALLOW_UPLOAD=true
-
-NODE_ENV=production
+git clone https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server.git
+cd notioc-canvas-mcp-server
+npm install && npm run build
 ```
 
-**LlamaParse Configuration (Advanced Document Processing):**
-- `LLAMA_CLOUD_API_KEY`: API key from LlamaIndex Cloud for processing 94+ document types
-- `ENABLE_LLAMAPARSE=true`: Enable advanced document extraction
-- `LLAMA_PARSE_ALLOW_UPLOAD=true`: Allow uploading files to LlamaParse for processing
-- `LLAMA_PARSE_TIMEOUT_MS=300000`: Timeout for complex documents (5 minutes)
-- `LLAMA_PARSE_MAX_MB=50`: Maximum file size for processing
+**Complete setup instructions in [SETUP.md](SETUP.md)**
 
-> **📄 Document Support**: With LlamaParse enabled, the server can process PDFs, Word docs, Excel sheets, PowerPoints, images (OCR), audio files (transcription), and 80+ other formats with high accuracy.
+### Claude Desktop Configuration Preview
 
-### **3. Claude Desktop Integration**
-Add to Claude Desktop settings (`claude_desktop_config.json`):
+Add to your `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
     "notioc-canvas": {
       "command": "node",
-      "args": ["path/to/notioc-canvas-mcp-server/dist/src/server.js"],
+      "args": ["/path/to/your/project/dist/mcp.js"],
+      "cwd": "/path/to/your/project",
       "env": {
-        "CANVAS_BASE_URL": "https://your-school.instructure.com",
-        "CANVAS_ACCESS_TOKEN": "your_token_here"
+        "NODE_ENV": "production",
+        "CANVAS_BASE_URL": "https://your-canvas-instance.instructure.com",
+        "CANVAS_ACCESS_TOKEN": "your_canvas_access_token_here"
       }
     }
   }
 }
 ```
 
-> � **Need help?** Check out our detailed setup guides:
-> - [📖 Claude Desktop Setup](./CLAUDE-SETUP.md)
-> - [🤖 ChatGPT Integration](./CHATGPT-SETUP.md) 
-> - [🔧 Custom GPT Setup](./CUSTOM-GPT-SETUP.md)
+**Complete configuration guide in [SETUP.md](SETUP.md)**
 
-## 🛠️ **Available Tools (45 Total)**
+## Available Tools (44 Total)
 
-### **📊 Grades & Analytics**
+### Grades & Analytics
 - `get_grades` - Complete grade overview
 - `calculate_course_analytics` - Performance insights  
 - `generate_what_if_scenarios` - Grade predictions
 - `get_grade_trends` - Progress tracking
 - `get_gradebook_categories` - Weighted categories
 
-### **📝 Assignments & Submissions**
-- `get_assignments` - Assignment listings
-- `get_assignment_details` - Detailed assignment info
-- `get_previous_submission_content` - Review past work
-- `list_submitted_assignments` - Submission history
-- `download_submission_file` - File access
-- `get_assignment_feedback` - Instructor comments
-- `get_submission_comments` - Detailed feedback
+### Assignments & Submissions
+- `get_assignments` - Assignment listings with details
+- `get_assignment_submissions` - Previous submissions
+- `get_user_submissions` - Personal submission history
+- `get_submission_comments` - Feedback and comments
+- `submit_assignment` - Submit work programmatically
 
-### **🎓 Quiz & Study Tools**
-- `list_quizzes` - Quiz listings
-- `get_quiz_details` - Quiz information
-- `get_quiz_submissions` - Your submissions
-- `get_quiz_submission_content` - Complete quiz review
+### Course Management
+- `get_courses` - Course listings and details
+- `get_course_modules` - Module structure
+- `get_course_syllabus` - Syllabus content
+- `get_course_navigation` - Navigation structure
+- `search_courses` - Course search functionality
 
-### **📅 Planning & Navigation**
-- `get_calendar_events` - Due dates and events
-- `list_modules` - Course modules
-- `get_module_details` - Module information
-- `get_course_navigation` - Course structure
-- `get_course_syllabus` - Syllabus analysis
+### Files & Documents
+- `get_files` - File listings and access
+- `get_file_content` - Document content extraction
+- `upload_file` - File uploads
+- `search_files` - File search capabilities
+- `get_folders` - Folder organization
 
-### **📁 Content & Files**
-- `find_files` - Smart file search
-- `read_file` - File content processing
-- `process_file` - AI-powered file analysis
-- `smart_search` - Intelligent content search
+### Calendar & Due Dates
+- `get_calendar_events` - Upcoming events
+- `get_assignment_due_dates` - Due date tracking
+- `get_course_calendar` - Course-specific calendars
 
-### **💬 Communication**
-- `send_message` - Canvas messaging
-- `list_conversations` - Message history
-- `get_discussions` - Discussion access
-- `post_discussion_reply` - Participate in discussions
+### Communication
+- `get_discussions` - Discussion forums
+- `get_discussion_topics` - Topic details
+- `get_conversation_history` - Message history
+- `send_message` - Send messages
+- `get_announcements` - Course announcements
 
-### **🎯 Rubrics & Feedback**
-- `get_assignment_rubric` - Rubric analysis
-- `get_rubric_analysis` - Performance insights
+### Quizzes & Assessments
+- `get_quizzes` - Quiz listings
+- `get_quiz_questions` - Question details
+- `get_quiz_submissions` - Quiz attempts
+- `get_quiz_statistics` - Performance analytics
 
-## � **Example Conversations**
+### User & Profile
+- `get_user_profile` - Profile information
+- `get_user_activity` - Activity tracking
+- `get_course_users` - Class rosters
+- `get_enrollments` - Enrollment details
 
-### **Academic Performance**
-> *"What's my current grade in Computer Engineering and what do I need on the final to get an A?"*
+### Advanced Features
+- `smart_search` - AI-powered content search
+- `extract_document_content` - Advanced document processing
+- `analyze_course_structure` - Course organization analysis
+- `generate_study_guide` - AI study assistance
 
-> *"Show me all assignments due this week across my courses with urgency levels"*
+## Example Usage
 
-> *"Review my last physics quiz - what did I get wrong and help me study for the next one"*
+### Natural Language Queries
 
-### **Assignment Management**  
-> *"Find and process all files from my Math 451 homework submissions"*
+**Grade Analysis:**
+- "What's my current grade in Biology?"
+- "What grade do I need on the final to get an A?"
+- "Show me my grade trends this semester"
 
-> *"What feedback did my professor give on my latest programming assignment?"*
+**Assignment Management:**
+- "What assignments are due this week?"
+- "Show me my latest essay submission"
+- "What feedback did I get on my last assignment?"
 
-> *"Download my submitted file from yesterday's physics recitation"*
+**Study Assistance:**
+- "Help me review my last quiz"
+- "What topics should I study for the midterm?"
+- "Generate a study guide for Chapter 5"
 
-### **Course Planning**
-> *"What modules do I need to complete in Operating Systems and what are the prerequisites?"*
+**Document Processing:**
+- "Extract text from this PDF syllabus"
+- "What are the key points in this lecture slide?"
+- "Summarize this research paper"
 
-> *"Extract the grading policy from my course syllabi"*
+## System Requirements
 
-> *"Show my progress across all courses and identify areas needing attention"*
+- **Node.js 18+** or **Docker Desktop**
+- **Claude Desktop** application
+- **Canvas API access token**
+- **LlamaParse API key** (optional, for advanced document processing)
 
-## 🎯 **Perfect For**
+## Security & Privacy
 
-✅ **Students** seeking academic excellence  
-✅ **Researchers** managing course workflows  
-✅ **Anyone** wanting smarter Canvas interaction  
-✅ **Power users** needing advanced academic analytics  
+- All data remains local to your machine
+- API tokens are stored securely in environment variables
+- No data is sent to external services (except LlamaParse for document processing)
+- Full control over your academic information
 
-## 🤝 **Contributing**
+## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 📄 **License**
+## Support & Documentation
 
-MIT License - see [LICENSE](./LICENSE) for details.
+- **Setup Guide:** [SETUP.md](SETUP.md)
+- **Docker Guide:** [DOCKER-README.md](DOCKER-README.md)
+- **Issues:** [GitHub Issues](https://github.com/Kuria-Mbatia/notioc-canvas-mcp-server/issues)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🎓 **Transform Your Academic Experience**
-
-Turn Canvas from a basic LMS into your intelligent academic partner. Get insights, automate workflows, and achieve better grades through AI-powered analysis.
-
-**Ready to revolutionize your Canvas experience?** 🚀
+**Transform your Canvas experience with AI-powered academic assistance through Claude Desktop integration.**
