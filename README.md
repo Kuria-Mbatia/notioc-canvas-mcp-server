@@ -40,6 +40,7 @@ A comprehensive Model Context Protocol (MCP) server providing seamless Canvas LM
 **Communication**
 - Canvas messaging integration
 - Discussion participation
+- **Group collaboration** - Access group discussions and members
 - Professional email drafting
 
 ## Quick Start
@@ -136,6 +137,14 @@ Add to your `claude_desktop_config.json`:
 - `get_conversation_history` - Message history
 - `send_message` - Send messages
 - `get_announcements` - Course announcements
+
+### Groups & Collaboration
+- `list_groups` - List all groups or groups in a course
+- `get_group_details` - Detailed group information
+- `list_group_members` - See group membership
+- `list_group_discussions` - Group discussion topics
+- `get_group_discussion` - Read group discussions
+- `post_group_discussion` - Create group posts
 
 ### Quizzes & Assessments
 - `get_quizzes` - Quiz listings

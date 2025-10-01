@@ -120,11 +120,19 @@ export interface CanvasFile {
 }
 
 export interface CanvasPage {
+    page_id?: number;
+    url?: string;
     title: string;
     html_url: string;
     created_at: string;
     updated_at: string | null;
     body?: string;
+    published?: boolean;
+    front_page?: boolean;
+    editing_roles?: string;
+    locked_for_user?: boolean;
+    lock_explanation?: string;
+    lock_info?: any;
 }
 
 export interface CanvasDiscussion {

@@ -52,6 +52,14 @@ import {
   getPreviousSubmissionContent, listSubmittedAssignments,
   PreviousSubmissionParams
 } from './tools/previous-submissions.js';
+import { getCurrentCourses, CurrentCoursesParams } from './tools/current-courses.js';
+import {
+  listGroups, getGroupDetails, listGroupMembers, listGroupDiscussions, getGroupDiscussion, postGroupDiscussion
+} from './tools/groups.js';
+
+// Import tool help and guidance systems
+import { getToolHelp, getAllToolsOverview, searchTools } from './lib/tool-help.js';
+import { SYSTEM_GUIDANCE } from './lib/llm-guidance.js';
 
 // Import custom logger that writes to stderr
 import { logger } from './lib/logger.js';
@@ -171,6 +179,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: 'get_current_courses',
+        description: '🎯 SMART TOOL: Get ONLY currently active courses (running right now this semester/term). Use this instead of get_courses when users ask about "my courses", "current courses", or "what\'s due". Automatically filters out past/future courses and provides context about which courses are actually running.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            includeUpcoming: {
+              type: 'boolean',
+              description: 'Also show courses starting in the next 4 weeks',
+              default: false
+            },
+            includeRecentlyCompleted: {
+              type: 'boolean',
+              description: 'Also show courses that ended in the last 4 weeks',
+              default: false
+            },
+            checkActivity: {
+              type: 'boolean',
+              description: '🔥 RECOMMENDED: Check for upcoming assignments to filter out inactive courses (e.g., training). Slightly slower but much more accurate for users with many enrollments.',
+              default: false
+            }
+          },
+        },
+      },
+      {
         name: 'get_pages',
         description: 'Get pages in a Canvas course',
         inputSchema: {
@@ -205,7 +237,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'read_page',
-        description: 'Read the content of a specific Canvas page',
+        description: 'Read the content of a specific Canvas page. Automatically extracts and categorizes all links (other pages, files, assignments, discussions) found on the page, providing Claude with context about what else can be explored.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -285,6 +317,117 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           },
           required: ['discussionId'],
+        },
+      },
+      {
+        name: 'list_groups',
+        description: 'List Canvas groups for the current user or a specific course. Groups are used for collaboration, group discussions, and group assignments.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric). If omitted, returns all groups for the current user.',
+            },
+            courseName: {
+              type: 'string',
+              description: 'The course name (e.g., "Art 113N", "CMPEN 431"). If provided, courseId is not required.',
+            }
+          },
+        },
+      },
+      {
+        name: 'get_group_details',
+        description: 'Get detailed information about a specific Canvas group including permissions and member count.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'The Canvas group ID (numeric)',
+            }
+          },
+          required: ['groupId'],
+        },
+      },
+      {
+        name: 'list_group_members',
+        description: 'List all members of a specific Canvas group.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'The Canvas group ID (numeric)',
+            }
+          },
+          required: ['groupId'],
+        },
+      },
+      {
+        name: 'list_group_discussions',
+        description: 'List discussion topics in a Canvas group. Groups often have their own discussion boards separate from course discussions.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'The Canvas group ID (numeric)',
+            },
+            orderBy: {
+              type: 'string',
+              enum: ['position', 'recent_activity', 'title'],
+              description: 'Order discussions by (default: recent_activity)',
+              default: 'recent_activity'
+            }
+          },
+          required: ['groupId'],
+        },
+      },
+      {
+        name: 'get_group_discussion',
+        description: 'Get a specific discussion topic from a Canvas group.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'The Canvas group ID (numeric)',
+            },
+            topicId: {
+              type: 'string',
+              description: 'The discussion topic ID',
+            }
+          },
+          required: ['groupId', 'topicId'],
+        },
+      },
+      {
+        name: 'post_group_discussion',
+        description: 'Create a new discussion topic in a Canvas group.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'The Canvas group ID (numeric)',
+            },
+            title: {
+              type: 'string',
+              description: 'The title of the discussion topic',
+            },
+            message: {
+              type: 'string',
+              description: 'The message/content of the discussion topic',
+            },
+            discussionType: {
+              type: 'string',
+              enum: ['side_comment', 'threaded'],
+              description: 'Type of discussion (default: threaded)',
+              default: 'threaded'
+            }
+          },
+          required: ['groupId', 'title', 'message'],
         },
       },
       {
@@ -996,7 +1139,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
         {
           name: 'list_modules',
-          description: 'List course modules in a Canvas course.',
+          description: 'List course modules in a Canvas course with comprehensive details including prerequisites, sequential progress requirements, unlock dates, completion status, and item summaries. Shows which modules must be completed before others, overall progress, and counts of different item types within each module.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -1029,7 +1172,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
         {
           name: 'get_module_items',
-          description: 'Get items for a specific Canvas course module.',
+          description: 'Get items for a specific Canvas course module with smart categorization by type (Assignments, Quizzes, Pages, Files, Discussions, etc.). Shows completion requirements, due dates with overdue warnings, lock status, and provides specific tool suggestions for accessing each item. Includes summary statistics of completed, locked, and overdue items.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -1408,6 +1551,34 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             ]
           }
         },
+        {
+          name: 'get_tool_help',
+          description: `Get detailed help, examples, and usage guidance for Canvas MCP tools. Use this to understand tool capabilities, see examples, learn best practices, and troubleshoot issues.
+          
+**Use cases:**
+- "How do I check my grades?" → Get help on grade tools
+- "Show me all available tools" → Get complete overview
+- "How does smart_search work?" → Get detailed tool documentation
+- "What tools help with assignments?" → Search for relevant tools`,
+          inputSchema: {
+            type: 'object',
+            properties: {
+              toolName: {
+                type: 'string',
+                description: 'Name of specific tool to get help for (e.g., "get_courses", "smart_search"). Use "all" for complete overview, or "search" with searchQuery to find tools.',
+              },
+              searchQuery: {
+                type: 'string',
+                description: 'Optional: Search for tools by keywords (e.g., "grades", "assignments", "files")',
+              },
+              showExamples: {
+                type: 'boolean',
+                description: 'Include usage examples (default: true)',
+                default: true
+              }
+            }
+          }
+        },
     ],
   };
 });
@@ -1438,6 +1609,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           };
         }
 
+        case 'get_current_courses': {
+          const result = await getCurrentCourses({
+            ...getCanvasConfig(),
+            ...(input as Omit<CurrentCoursesParams, 'canvasBaseUrl' | 'accessToken'>)
+          });
+          return {
+            content: [
+              {
+                type: "text",
+                text: result
+              }
+            ]
+          };
+        }
+
         case 'get_pages': {
           const pages = await listPages({
             ...getCanvasConfig(),
@@ -1457,13 +1643,97 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         case 'read_page': {
           const pageContent = await getPageContent({
             ...getCanvasConfig(),
-            ...(input as Omit<PageContentParams, 'canvasBaseUrl' | 'accessToken'>)
+            ...(input as Omit<PageContentParams, 'canvasBaseUrl' | 'accessToken'>),
+            extractLinks: true
           });
+          
+          let markdown = `# ${pageContent.title}\n\n`;
+          
+          // Add metadata
+          if (pageContent.published !== undefined) {
+            markdown += `**Status**: ${pageContent.published ? '✅ Published' : '📝 Draft'}\n`;
+          }
+          if (pageContent.frontPage) {
+            markdown += `**Front Page**: Yes\n`;
+          }
+          if (pageContent.lockInfo?.locked) {
+            markdown += `**🔒 Locked**: ${pageContent.lockInfo.explanation || 'This page is locked'}\n`;
+          }
+          markdown += `\n---\n\n`;
+          
+          // Add page content
+          markdown += pageContent.body;
+          
+          // Add links section if any were found
+          if (pageContent.links && pageContent.links.length > 0) {
+            markdown += `\n\n---\n\n## 🔗 Links Found on This Page\n\n`;
+            
+            // Group links by type
+            const linksByType = pageContent.links.reduce((acc, link) => {
+              if (!acc[link.type]) acc[link.type] = [];
+              acc[link.type].push(link);
+              return acc;
+            }, {} as Record<string, typeof pageContent.links>);
+            
+            // Pages
+            if (linksByType.page?.length > 0) {
+              markdown += `\n### 📄 Canvas Pages (${linksByType.page.length})\n`;
+              markdown += `*Use read_page with these page URLs to read them*\n\n`;
+              linksByType.page.forEach(link => {
+                markdown += `- **${link.text}** → \`${link.url}\`\n`;
+              });
+            }
+            
+            // Files
+            if (linksByType.file?.length > 0) {
+              markdown += `\n### 📎 Files (${linksByType.file.length})\n`;
+              markdown += `*Use read_file_by_id with the file ID to access these*\n\n`;
+              linksByType.file.forEach(link => {
+                markdown += `- **${link.text}** → File ID: \`${link.resourceId}\`\n`;
+              });
+            }
+            
+            // Assignments
+            if (linksByType.assignment?.length > 0) {
+              markdown += `\n### 📝 Assignments (${linksByType.assignment.length})\n`;
+              markdown += `*Use get_assignment_details with the assignment ID*\n\n`;
+              linksByType.assignment.forEach(link => {
+                markdown += `- **${link.text}** → Assignment ID: \`${link.resourceId}\`\n`;
+              });
+            }
+            
+            // Discussions
+            if (linksByType.discussion?.length > 0) {
+              markdown += `\n### 💬 Discussions (${linksByType.discussion.length})\n`;
+              markdown += `*Use read_discussion with the discussion ID*\n\n`;
+              linksByType.discussion.forEach(link => {
+                markdown += `- **${link.text}** → Discussion ID: \`${link.resourceId}\`\n`;
+              });
+            }
+            
+            // Modules
+            if (linksByType.module?.length > 0) {
+              markdown += `\n### 📚 Modules (${linksByType.module.length})\n`;
+              markdown += `*Use get_module_items with the module ID*\n\n`;
+              linksByType.module.forEach(link => {
+                markdown += `- **${link.text}** → Module ID: \`${link.resourceId}\`\n`;
+              });
+            }
+            
+            // External Links
+            if (linksByType.external?.length > 0) {
+              markdown += `\n### 🌐 External Links (${linksByType.external.length})\n\n`;
+              linksByType.external.forEach(link => {
+                markdown += `- [${link.text}](${link.url})\n`;
+              });
+            }
+          }
+          
           return {
             content: [
               {
                 type: "text",
-                text: pageContent.body
+                text: markdown
               }
             ]
           };
@@ -1506,6 +1776,130 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             {
                 type: "text",
                 text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_groups': {
+        const groups = await listGroups({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        const markdown = `| Group ID | Group Name | Members | Course ID | Role |\n|---|---|---|---|---|\n` + 
+          groups.map(g => `| ${g.id} | ${g.name} | ${g.membersCount || 'N/A'} | ${g.courseId || 'N/A'} | ${g.role || 'N/A'} |`).join('\n');
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_group_details': {
+        const groupDetails = await getGroupDetails({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        let markdown = `# ${groupDetails.name}\n\n`;
+        if (groupDetails.description) {
+          markdown += `**Description:** ${groupDetails.description}\n\n`;
+        }
+        markdown += `**Members:** ${groupDetails.membersCount || 'N/A'}\n`;
+        markdown += `**Course ID:** ${groupDetails.courseId || 'N/A'}\n`;
+        markdown += `**Role:** ${groupDetails.role || 'N/A'}\n`;
+        markdown += `**Public:** ${groupDetails.isPublic ? 'Yes' : 'No'}\n`;
+        if (groupDetails.joinLevel) {
+          markdown += `**Join Level:** ${groupDetails.joinLevel}\n`;
+        }
+        if (groupDetails.permissions) {
+          markdown += `\n**Permissions:**\n`;
+          markdown += `- Can Create Discussion: ${groupDetails.permissions.canCreateDiscussion ? 'Yes' : 'No'}\n`;
+          markdown += `- Can Create Announcement: ${groupDetails.permissions.canCreateAnnouncement ? 'Yes' : 'No'}\n`;
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_group_members': {
+        const members = await listGroupMembers({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        const markdown = `| User ID | Name | Login ID | Pronouns |\n|---|---|---|---|\n` + 
+          members.map(m => `| ${m.id} | ${m.name} | ${m.login_id || 'N/A'} | ${m.pronouns || 'N/A'} |`).join('\n');
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'list_group_discussions': {
+        const discussions = await listGroupDiscussions({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        const markdown = `| Topic ID | Title | Posted At | Replies | Unread |\n|---|---|---|---|---|\n` + 
+          discussions.map(d => `| ${d.id} | ${d.title} | ${d.posted_at ? new Date(d.posted_at).toLocaleString() : 'N/A'} | ${d.discussion_subentry_count || 0} | ${d.unread_count || 0} |`).join('\n');
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_group_discussion': {
+        const discussion = await getGroupDiscussion({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        let markdown = `## ${discussion.title}\n\n`;
+        if (discussion.message) {
+          markdown += `${discussion.message}\n\n`;
+        }
+        if (discussion.author) {
+          markdown += `**Posted by:** ${discussion.author.display_name}\n`;
+        }
+        if (discussion.posted_at) {
+          markdown += `**Posted at:** ${new Date(discussion.posted_at).toLocaleString()}\n`;
+        }
+        markdown += `**Replies:** ${discussion.discussion_subentry_count || 0}\n`;
+        markdown += `**Unread:** ${discussion.unread_count || 0}\n`;
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'post_group_discussion': {
+        const result = await postGroupDiscussion({
+          ...getCanvasConfig(),
+          ...(input as any)
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Successfully created discussion "${result.title}" in group (ID: ${result.id})`
             }
           ]
         };
@@ -2561,13 +2955,90 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       case 'list_modules': {
         const modules = await listModules({
           ...getCanvasConfig(),
-          ...(input as Omit<ListModulesParams, 'canvasBaseUrl' | 'accessToken'>)
+          ...(input as Omit<ListModulesParams, 'canvasBaseUrl' | 'accessToken'>),
+          include: ['items']
         });
         
-        let markdown = `| Module ID | Name | Position | Items Count | State | Published |\n|---|---|---|---|---|---|\n`;
-        modules.forEach(module => {
-          markdown += `| ${module.id} | ${module.name} | ${module.position} | ${module.itemsCount} | ${module.state || 'N/A'} | ${module.published ? '✅' : '❌'} |\n`;
-        });
+        let markdown = `# 📚 Course Modules\n\n`;
+        
+        if (modules.length === 0) {
+          markdown += `*No modules found in this course.*\n`;
+        } else {
+          modules.forEach((module, idx) => {
+            markdown += `\n## ${idx + 1}. ${module.name}\n\n`;
+            
+            // Module metadata
+            markdown += `**Module ID**: ${module.id} | **Position**: ${module.position} | `;
+            markdown += `**Published**: ${module.published ? '✅' : '❌'}\n\n`;
+            
+            // State and completion
+            if (module.state) {
+              const stateEmoji: Record<string, string> = {
+                'locked': '🔒',
+                'unlocked': '🔓',
+                'started': '▶️',
+                'completed': '✅'
+              };
+              markdown += `**Status**: ${stateEmoji[module.state] || ''} ${module.state.charAt(0).toUpperCase() + module.state.slice(1)}\n\n`;
+            }
+            
+            if (module.completedAt) {
+              markdown += `**✅ Completed**: ${new Date(module.completedAt).toLocaleString()}\n\n`;
+            }
+            
+            // Prerequisites
+            if (module.prerequisiteModuleIds.length > 0) {
+              markdown += `**📋 Prerequisites**: Must complete modules ${module.prerequisiteModuleIds.join(', ')} first\n\n`;
+            }
+            
+            // Sequential progress
+            if (module.requireSequentialProgress) {
+              markdown += `**➡️ Sequential**: Items must be completed in order\n\n`;
+            }
+            
+            // Unlock date
+            if (module.unlockAt) {
+              const unlockDate = new Date(module.unlockAt);
+              const isLocked = unlockDate > new Date();
+              markdown += `**${isLocked ? '🔒' : '🔓'} Unlock Date**: ${unlockDate.toLocaleString()}${isLocked ? ' (Not yet unlocked)' : ''}\n\n`;
+            }
+            
+            // Items summary
+            markdown += `**📦 Items**: ${module.itemsCount} total\n`;
+            if (module.items && module.items.length > 0) {
+              // Group by type
+              const itemTypes: Record<string, number> = {};
+              module.items.forEach(item => {
+                itemTypes[item.type] = (itemTypes[item.type] || 0) + 1;
+              });
+              const typeSummary = Object.entries(itemTypes)
+                .map(([type, count]) => `${count} ${type}${count > 1 ? 's' : ''}`)
+                .join(', ');
+              markdown += `  - ${typeSummary}\n`;
+            }
+            markdown += `\n`;
+            
+            // Action suggestion
+            markdown += `**🎯 To Explore**: Use \`get_module_items\` with moduleId: \`${module.id}\`\n\n`;
+            markdown += `---\n`;
+          });
+          
+          // Overall summary
+          markdown += `\n## 📊 Overall Progress\n\n`;
+          const totalModules = modules.length;
+          const publishedModules = modules.filter(m => m.published).length;
+          const completedModules = modules.filter(m => m.state === 'completed').length;
+          const lockedModules = modules.filter(m => m.state === 'locked').length;
+          
+          markdown += `- **Total Modules**: ${totalModules}\n`;
+          markdown += `- **Published**: ${publishedModules}\n`;
+          if (completedModules > 0) {
+            markdown += `- **✅ Completed**: ${completedModules}\n`;
+          }
+          if (lockedModules > 0) {
+            markdown += `- **🔒 Locked**: ${lockedModules}\n`;
+          }
+        }
         
         return {
           content: [
@@ -2582,13 +3053,154 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       case 'get_module_items': {
         const items = await getModuleItems({
           ...getCanvasConfig(),
-          ...(input as Omit<ModuleItemsParams, 'canvasBaseUrl' | 'accessToken'>)
+          ...(input as Omit<ModuleItemsParams, 'canvasBaseUrl' | 'accessToken'>),
+          include: ['content_details']
         });
         
-        let markdown = `| Item ID | Title | Type | Position | Published |\n|---|---|---|---|---|\n`;
-        items.forEach(item => {
-          markdown += `| ${item.id} | ${item.title} | ${item.type} | ${item.position} | ${item.published ? '✅' : '❌'} |\n`;
-        });
+        let markdown = `# 📚 Module Items\n\n`;
+        
+        if (items.length === 0) {
+          markdown += `*No items found in this module.*\n`;
+        } else {
+          // Group items by type for better organization
+          const itemsByType: Record<string, typeof items> = {};
+          items.forEach(item => {
+            if (!itemsByType[item.type]) {
+              itemsByType[item.type] = [];
+            }
+            itemsByType[item.type].push(item);
+          });
+          
+          // Helper to get tool suggestion for item type
+          const getToolSuggestion = (item: typeof items[0]) => {
+            switch (item.type) {
+              case 'Page':
+                return `\`read_page\` with pageUrl: \`${item.pageUrl}\``;
+              case 'File':
+                return `\`read_file_by_id\` with fileId: \`${item.contentId}\``;
+              case 'Assignment':
+                return `\`get_assignment_details\` with assignmentId: \`${item.contentId}\``;
+              case 'Quiz':
+                return `\`get_quiz_details\` with quizId: \`${item.contentId}\``;
+              case 'Discussion':
+                return `\`read_discussion\` with discussionId: \`${item.contentId}\``;
+              case 'ExternalUrl':
+                return `Visit: ${item.externalUrl}`;
+              case 'ExternalTool':
+                return `Access external tool at: ${item.htmlUrl}`;
+              case 'SubHeader':
+                return `(Section Header - no action needed)`;
+              default:
+                return `View at: ${item.htmlUrl}`;
+            }
+          };
+          
+          // Display each type group
+          const typeOrder = ['Assignment', 'Quiz', 'Page', 'File', 'Discussion', 'ExternalUrl', 'ExternalTool', 'SubHeader'];
+          const displayedTypes = typeOrder.filter(type => itemsByType[type]?.length > 0);
+          const otherTypes = Object.keys(itemsByType).filter(type => !typeOrder.includes(type));
+          
+          [...displayedTypes, ...otherTypes].forEach(type => {
+            const typeItems = itemsByType[type];
+            if (!typeItems || typeItems.length === 0) return;
+            
+            // Type emoji mapping
+            const typeEmoji: Record<string, string> = {
+              'Assignment': '📝',
+              'Quiz': '📊',
+              'Page': '📄',
+              'File': '📎',
+              'Discussion': '💬',
+              'ExternalUrl': '🔗',
+              'ExternalTool': '🔧',
+              'SubHeader': '📑'
+            };
+            
+            markdown += `\n## ${typeEmoji[type] || '📌'} ${type} Items (${typeItems.length})\n\n`;
+            
+            typeItems.forEach((item, idx) => {
+              // Indent level
+              const indent = '  '.repeat(item.indent);
+              
+              markdown += `${indent}### ${idx + 1}. ${item.title}\n\n`;
+              
+              // Status indicators
+              const statusIcons: string[] = [];
+              if (!item.published) statusIcons.push('📝 Draft');
+              if (item.completionRequirement?.completed) statusIcons.push('✅ Completed');
+              if (item.contentDetails?.lockedForUser) statusIcons.push('🔒 Locked');
+              
+              if (statusIcons.length > 0) {
+                markdown += `${indent}**Status**: ${statusIcons.join(' | ')}\n\n`;
+              }
+              
+              // Completion requirement
+              if (item.completionRequirement && !item.completionRequirement.completed) {
+                markdown += `${indent}**📋 Requirement**: `;
+                switch (item.completionRequirement.type) {
+                  case 'must_view':
+                    markdown += `Must view this item\n`;
+                    break;
+                  case 'must_contribute':
+                    markdown += `Must contribute (post/comment)\n`;
+                    break;
+                  case 'must_submit':
+                    markdown += `Must submit\n`;
+                    break;
+                  case 'min_score':
+                    markdown += `Must score at least ${item.completionRequirement.minScore} points\n`;
+                    break;
+                  case 'must_mark_done':
+                    markdown += `Must mark as done\n`;
+                    break;
+                  default:
+                    markdown += `${item.completionRequirement.type}\n`;
+                }
+                markdown += `\n`;
+              }
+              
+              // Content details (due date, points, etc.)
+              if (item.contentDetails) {
+                const details = item.contentDetails;
+                if (details.dueAt) {
+                  const dueDate = new Date(details.dueAt);
+                  const isOverdue = dueDate < new Date();
+                  markdown += `${indent}**📅 Due**: ${dueDate.toLocaleString()}${isOverdue ? ' ⚠️ OVERDUE' : ''}\n\n`;
+                }
+                if (details.pointsPossible) {
+                  markdown += `${indent}**Points**: ${details.pointsPossible}\n\n`;
+                }
+                if (details.lockedForUser && details.lockExplanation) {
+                  markdown += `${indent}**🔒 Lock Info**: ${details.lockExplanation}\n\n`;
+                }
+              }
+              
+              // Action suggestion
+              markdown += `${indent}**🎯 To Access**: ${getToolSuggestion(item)}\n\n`;
+              
+              markdown += `${indent}---\n\n`;
+            });
+          });
+          
+          // Summary stats
+          markdown += `\n## 📊 Summary\n\n`;
+          markdown += `- **Total Items**: ${items.length}\n`;
+          const completedCount = items.filter(i => i.completionRequirement?.completed).length;
+          const totalRequirements = items.filter(i => i.completionRequirement).length;
+          if (totalRequirements > 0) {
+            markdown += `- **Completed**: ${completedCount} / ${totalRequirements}\n`;
+          }
+          const lockedCount = items.filter(i => i.contentDetails?.lockedForUser).length;
+          if (lockedCount > 0) {
+            markdown += `- **Locked Items**: ${lockedCount}\n`;
+          }
+          const overdueCount = items.filter(i => 
+            i.contentDetails?.dueAt && new Date(i.contentDetails.dueAt) < new Date()
+          ).length;
+          if (overdueCount > 0) {
+            markdown += `- **⚠️ Overdue**: ${overdueCount}\n`;
+          }
+        }
         
         return {
           content: [
@@ -3293,6 +3905,48 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           markdown += `\n`;
         }
 
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_tool_help': {
+        const inputParams = input as any;
+        const toolName = inputParams.toolName?.toLowerCase();
+        const searchQuery = inputParams.searchQuery;
+        
+        let markdown = '';
+        
+        // Handle different request types
+        if (searchQuery) {
+          // Search for tools by keywords
+          const matches = searchTools(searchQuery);
+          
+          if (matches.length === 0) {
+            markdown = `# 🔍 Tool Search: "${searchQuery}"\n\n`;
+            markdown += `No tools found matching your search. Try broader terms like "grades", "assignments", "files", "discussions", etc.\n\n`;
+            markdown += `Use \`get_tool_help\` with toolName="all" to see all available tools.`;
+          } else {
+            markdown = `# 🔍 Tool Search Results: "${searchQuery}"\n\n`;
+            markdown += `Found ${matches.length} tool(s) matching your search:\n\n`;
+            matches.forEach(tool => {
+              markdown += `## ${tool}\n\n`;
+              markdown += getToolHelp(tool) + '\n\n---\n\n';
+            });
+          }
+        } else if (toolName === 'all' || !toolName) {
+          // Return overview of all tools
+          markdown = getAllToolsOverview();
+        } else {
+          // Get help for specific tool
+          markdown = getToolHelp(toolName);
+        }
+        
         return {
           content: [
             {

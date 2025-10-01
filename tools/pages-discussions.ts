@@ -33,6 +33,30 @@ export interface PageContentParams {
   pageUrl?: string;
   pageId?: string;
   fullUrl?: string; // New: accepts full Canvas URL like https://psu.instructure.com/courses/2422265/pages/l12-overview
+  extractLinks?: boolean; // Extract and categorize links from page content
+}
+
+export interface PageLink {
+  type: 'page' | 'file' | 'assignment' | 'discussion' | 'external' | 'module';
+  url: string;
+  text: string;
+  resourceId?: string;
+}
+
+export interface PageContentResult {
+  title: string;
+  body: string;
+  url: string;
+  published?: boolean;
+  frontPage?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  links?: PageLink[];
+  editingRoles?: string;
+  lockInfo?: {
+    locked: boolean;
+    explanation?: string;
+  };
 }
 
 // Interfaces for Discussions/Announcements functionality
@@ -75,6 +99,142 @@ function extractPageIdentifier(pageUrl: string): string {
     // If it's not a full URL, assume it's just the identifier itself
     return pageUrl;
   }
+}
+
+/**
+ * Extract and categorize links from HTML content
+ */
+function extractLinksFromHTML(html: string, canvasBaseUrl: string): PageLink[] {
+  const links: PageLink[] = [];
+  
+  // Match all <a> tags with href and text content
+  const linkRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>([^<]+)<\/a>/gi;
+  let match;
+  
+  while ((match = linkRegex.exec(html)) !== null) {
+    const url = match[1];
+    const text = match[2].trim();
+    
+    // Skip empty links or anchors
+    if (!url || url.startsWith('#') || !text) {
+      continue;
+    }
+    
+    try {
+      const fullUrl = url.startsWith('http') ? url : `${canvasBaseUrl}${url}`;
+      const urlObj = new URL(fullUrl);
+      const pathname = urlObj.pathname;
+      
+      // Categorize Canvas links
+      if (urlObj.hostname.includes('instructure.com') || urlObj.hostname === new URL(canvasBaseUrl).hostname) {
+        if (pathname.includes('/pages/')) {
+          const pageId = pathname.split('/pages/')[1]?.split('?')[0];
+          links.push({
+            type: 'page',
+            url: fullUrl,
+            text,
+            resourceId: pageId
+          });
+        } else if (pathname.includes('/files/')) {
+          const fileId = pathname.match(/\/files\/(\d+)/)?.[1];
+          links.push({
+            type: 'file',
+            url: fullUrl,
+            text,
+            resourceId: fileId
+          });
+        } else if (pathname.includes('/assignments/')) {
+          const assignmentId = pathname.match(/\/assignments\/(\d+)/)?.[1];
+          links.push({
+            type: 'assignment',
+            url: fullUrl,
+            text,
+            resourceId: assignmentId
+          });
+        } else if (pathname.includes('/discussion_topics/')) {
+          const discussionId = pathname.match(/\/discussion_topics\/(\d+)/)?.[1];
+          links.push({
+            type: 'discussion',
+            url: fullUrl,
+            text,
+            resourceId: discussionId
+          });
+        } else if (pathname.includes('/modules/')) {
+          const moduleId = pathname.match(/\/modules\/(\d+)/)?.[1];
+          links.push({
+            type: 'module',
+            url: fullUrl,
+            text,
+            resourceId: moduleId
+          });
+        }
+      } else {
+        // External link
+        links.push({
+          type: 'external',
+          url: fullUrl,
+          text
+        });
+      }
+    } catch (e) {
+      // Skip invalid URLs
+      continue;
+    }
+  }
+  
+  return links;
+}
+
+/**
+ * Convert HTML to more readable markdown-like text
+ */
+function htmlToReadableText(html: string): string {
+  if (!html) return '';
+  
+  let text = html;
+  
+  // Convert headers
+  text = text.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n');
+  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n');
+  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
+  text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n');
+  
+  // Convert lists
+  text = text.replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n');
+  text = text.replace(/<\/?[ou]l[^>]*>/gi, '\n');
+  
+  // Convert paragraphs
+  text = text.replace(/<p[^>]*>/gi, '\n');
+  text = text.replace(/<\/p>/gi, '\n');
+  
+  // Convert line breaks
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  
+  // Convert bold/italic
+  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+  text = text.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
+  text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+  text = text.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
+  
+  // Preserve links with their text (links will be extracted separately)
+  text = text.replace(/<a[^>]*href=["']([^"']+)["'][^>]*>([^<]+)<\/a>/gi, '[$2]($1)');
+  
+  // Remove remaining HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+  
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  
+  // Clean up whitespace
+  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.trim();
+  
+  return text;
 }
 
 /**
@@ -152,8 +312,8 @@ export async function listPages(params: PagesListParams): Promise<PageInfo[]> {
 /**
  * Get the content of a specific page
  */
-export async function getPageContent(params: PageContentParams): Promise<{ title: string; body: string, url: string }> {
-  let { canvasBaseUrl, accessToken, courseId, courseName, pageUrl, pageId, fullUrl } = params;
+export async function getPageContent(params: PageContentParams): Promise<PageContentResult> {
+  let { canvasBaseUrl, accessToken, courseId, courseName, pageUrl, pageId, fullUrl, extractLinks = true } = params;
   
   // Handle full Canvas URL
   if (fullUrl && isCanvasUrl(fullUrl)) {
@@ -206,11 +366,30 @@ export async function getPageContent(params: PageContentParams): Promise<{ title
 
     const pageData: CanvasPage = await response.json();
     
-    return {
+    const result: PageContentResult = {
       title: pageData.title,
-      body: pageData.body || '',
+      body: htmlToReadableText(pageData.body || ''),
       url: pageData.html_url,
+      published: pageData.published,
+      frontPage: pageData.front_page,
+      createdAt: pageData.created_at,
+      updatedAt: pageData.updated_at || undefined,
+      editingRoles: pageData.editing_roles,
+      lockInfo: pageData.locked_for_user ? {
+        locked: true,
+        explanation: pageData.lock_explanation
+      } : {
+        locked: false
+      }
     };
+    
+    // Extract links if requested
+    if (extractLinks && pageData.body) {
+      result.links = extractLinksFromHTML(pageData.body, canvasBaseUrl);
+      logger.info(`Extracted ${result.links.length} links from page "${pageData.title}"`);
+    }
+    
+    return result;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to get page content for "${pageIdentifier}": ${error.message}`);
