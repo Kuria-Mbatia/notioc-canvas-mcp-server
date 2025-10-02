@@ -4,7 +4,7 @@ A comprehensive Model Context Protocol (MCP) server that provides programmatic a
 
 ## About Notioc
 
-Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 64 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
+Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 66 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
 
 ### Technical Overview
 
@@ -172,6 +172,8 @@ Notioc provides 55 specialized MCP tools organized by functional category:
 **create_bookmark** - Save important Canvas URLs (study guides, discussions, assignments)
 **update_bookmark** - Edit bookmark name or URL
 **delete_bookmark** - Remove a saved bookmark
+**get_recent_history** - View recently visited Canvas pages with timestamps and time spent
+**get_content_shares** - View content shared directly by instructors or peers
 
 ### Grade and Analytics Tools
 

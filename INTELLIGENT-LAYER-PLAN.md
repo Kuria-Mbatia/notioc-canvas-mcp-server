@@ -7,11 +7,70 @@
 1. **Complete Visibility**: If a student can see it in Canvas → Claude can access it
 2. **No Gaps**: Expose hidden/underutilized Canvas features (Analytics, Planner, Notifications)
 3. **Intelligent Orchestration**: Combine multiple Canvas APIs to answer complex questions
-4. **Natural Language**: Students ask questions naturally, Claude navigates Canvas's API complexity
+4. **Natural Language**: Students ask questions naturally, Claude navigates Canvas's API complex**Impact**: +1% Canvas parity (direct shares unlock)
 
 ---
 
-## Current Coverage Audit (What Students Can Access)
+### 2.6 CommMessages ⭐ - ❌ REMOVED (Admin-Only API)
+**Status**: Removed October 2, 2025
+**Reason**: Requires admin permissions
+
+**Issue Discovered:**
+The Canvas CommMessages API (`GET /api/v1/comm_messages`) requires:
+1. Admin-level permissions (not available to students)
+2. Explicit `user_id` parameter (cannot use `self`)
+3. Elevated scope beyond student access tokens
+
+**Why It Doesn't Work for Students:**
+- API is designed for administrators to view messages sent to specific users
+- Students cannot access their own comm messages via this endpoint
+- Requires institutional admin rights to query
+
+**Alternative Solutions:**
+Students already have access to notifications via:
+- ✅ `get_account_notifications` - Campus-wide alerts and announcements
+- ✅ Canvas web UI notifications center (not currently exposed via student APIs)
+- ✅ Email notifications (external to Canvas API)
+
+**Decision:** Removed from Phase 2 scope. Focus on student-accessible features only.
+
+---
+
+## Phase 2 Achievement Summary 🎉
+
+**Status:** ✅ 100% COMPLETE (October 2, 2025)
+
+**Implementation Results:**
+- 5 features implemented (100% of student-accessible Phase 2 scope)
+- 12 tools added to MCP server
+- All builds clean, no TypeScript errors
+- Canvas Parity: 65% → 71% (+6%)
+
+**Tools Added:**
+1. Favorites API: 3 tools (get_favorite_courses, add_favorite_course, remove_favorite_course)
+2. Course Nicknames: 3 tools (get_all_course_nicknames, set_course_nickname, remove_course_nickname)
+3. Bookmarks: 5 tools (get_bookmarks, get_bookmark, create_bookmark, update_bookmark, delete_bookmark)
+4. History: 1 tool (get_recent_history)
+5. Content Shares: 1 tool (get_content_shares)
+
+**Student Capabilities Unlocked:**
+- ✅ Quick navigation with favorites and nicknames
+- ✅ Natural language course references ("Biology" vs "BIO-301-F25")
+- ✅ Save and rediscover important Canvas resources
+- ✅ Find "that page I looked at yesterday"
+- ✅ View content instructors shared directly
+
+**Impact on User Experience:**
+Phase 2 transformed Canvas navigation to match codebase navigation patterns:
+- **Favorites = Quick Access** (like frequently accessed files)
+- **Nicknames = Natural Language** (like semantic_search vs file paths)
+- **Bookmarks = Saved Resources** (like editor bookmarks)
+- **History = Recent Items** (like recently opened files)
+- **Content Shares = Direct Sharing** (like shared documents)
+
+---
+
+## Phase 3: Intelligent Orchestration Tools (Week 3) - ⏳ 0/4 COMPLETE (0%)t Coverage Audit (What Students Can Access)
 
 ### ✅ Already Implemented (44 tools)
 - **Courses**: List, details, navigation, syllabus, modules, structure
@@ -416,8 +475,10 @@ Claude (with complete visibility): "URGENT: You have a peer review due in 4 hour
 
 ---
 
-## Phase 2: Smart Discovery & Navigation (Week 2) - 🔥 2/6 COMPLETE (33%)
+## Phase 2: Smart Discovery & Navigation (Week 2) - ✅ 5/5 COMPLETE (100%) 🎉
 **Goal**: Make Claude navigate Canvas like I navigate your codebase
+
+**Note:** CommMessages removed from scope - discovered to be admin-only API requiring elevated permissions.
 
 ### 2.1 Favorites API ⭐⭐ - ✅ COMPLETE
 **Status**: Implemented October 2, 2025
@@ -558,36 +619,106 @@ Nickname: Capstone
 
 ---
 
-### 2.4 History API ⭐ - ⏳ NOT STARTED
+### 2.4 History API ⭐ - ✅ COMPLETE
+**Status**: Implemented October 2, 2025
+**Implementation Files**: `tools/history.ts`, `mcp.ts`
+
 **Why**: "What was that page I looked at yesterday?"
 
 **API Endpoints**:
 - `GET /api/v1/users/self/history` - Recent pages viewed
 
-**New Tool**: `get_recent_history`
-```typescript
-// Returns: recently viewed Canvas pages
-// Use case: "Find that assignment I was looking at earlier"
+**Tools Implemented**:
+- `get_recent_history` - Returns recently viewed Canvas pages
+
+**Features**:
+- Recently viewed pages across all courses
+- Timestamps showing when each page was visited
+- Time spent tracking (interaction seconds)
+- Asset type identification with icons (📝 assignments, 💬 discussions, 📋 quizzes, 📄 pages, 📁 files, 📢 announcements)
+- Course context for each page visit
+- Optional date grouping (Today, Yesterday, specific dates)
+- Full URL tracking for direct access
+
+**Example Output**:
 ```
+📜 Your Recent Canvas History
+
+📅 Today
+──────────────────────────────────────────────────
+📝 Assignment: Midterm Essay (10:30 AM)
+  Course: English Literature 201
+
+💬 Discussion: Week 5 Topic (09:15 AM)
+  Course: History 301
+
+📅 Yesterday
+──────────────────────────────────────────────────
+📋 Quiz: Chapter 3 Review (04:20 PM)
+  Course: Biology 101
+```
+
+**Student Queries Enabled**:
+- "What was that assignment I looked at yesterday?"
+- "Find the page I visited this morning"
+- "Show me my recent Canvas activity"
+- "What have I been working on lately?"
+- "What pages did I view in the last few days?"
+
+**Impact**: +1% Canvas parity (page rediscovery unlock)
 
 ---
 
-### 2.5 Content Shares ⭐⭐
+### 2.5 Content Shares ⭐⭐ - ✅ COMPLETE
+**Status**: Implemented October 2, 2025
+**Implementation Files**: `tools/content-shares.ts`, `mcp.ts`
+
 **Why**: Instructors share content directly with students
 
 **API Endpoints**:
 - `GET /api/v1/users/self/content_shares/received` - Shared content
-- `GET /api/v1/users/self/content_shares/received/{id}/unread_count` - Unread count
+- `GET /api/v1/users/self/content_shares/unread_count` - Unread count
 
-**New Tool**: `get_content_shares`
-```typescript
-// Returns: content professors shared directly with you
-// Use case: "Did my professor share anything with me?"
+**Tools Implemented**:
+- `get_content_shares` - Returns content shared directly with the user
+
+**Features**:
+- Content shared directly by instructors or peers (separate from course materials)
+- Sender information (who shared it with you)
+- Read/unread status with visual indicators (🆕 for unread)
+- Content type identification (📝 assignments, 💬 discussions, 📄 pages, 📎 files)
+- Optional unread count summary
+- Shared date timestamps
+- Personal messages from senders included
+- Separates unread vs. previously read shares
+
+**Example Output**:
 ```
+📤 Content Shared With You
+
+🆕 You have 2 unread shares
+
+🆕 Unread Shares
+──────────────────────────────────────────────────
+1. Extra Study Resources for Midterm 🆕
+   👤 From: Professor Smith
+   📋 Type: 📄 Page
+   💬 Message: Here are some additional resources
+   📅 Shared: 10/1/2025, 2:30 PM
+   🔑 ID: 12345
+```
+
+**Student Queries Enabled**:
+- "Did my professor share anything with me?"
+- "Show me resources my instructor sent me"
+- "What content has been shared with me?"
+- "Do I have any unread shares?"
+
+**Impact**: +1% Canvas parity (direct shares unlock)
 
 ---
 
-### 2.6 CommMessages ⭐
+### 2.6 CommMessages ⭐ - ⏳ NOT STARTED
 **Why**: System-generated notifications (grade posted, submission feedback)
 
 **API Endpoints**:

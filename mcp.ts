@@ -87,6 +87,15 @@ import {
   formatBookmarks, formatBookmark,
   GetBookmarksParams, GetBookmarkParams, CreateBookmarkParams, UpdateBookmarkParams, DeleteBookmarkParams
 } from './tools/bookmarks.js';
+import {
+  getRecentHistory, formatHistory, formatHistoryByDate,
+  GetHistoryParams
+} from './tools/history.js';
+import {
+  getReceivedContentShares, getUnreadContentSharesCount,
+  formatContentShares, formatContentSharesWithCount,
+  GetContentSharesParams
+} from './tools/content-shares.js';
 
 // Import tool help and guidance systems
 import { getToolHelp, getAllToolsOverview, searchTools } from './lib/tool-help.js';
@@ -843,6 +852,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['bookmarkId'],
+        },
+      },
+      {
+        name: 'get_recent_history',
+        description: '📜 Get your recently viewed Canvas pages. Perfect for "What was that assignment I looked at yesterday?" or "Find the page I visited this morning". Shows page views across all courses with timestamps and time spent.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            groupByDate: {
+              type: 'boolean',
+              description: 'Optional: Group results by date (today, yesterday, etc.) for easier reading. Default: false',
+            },
+          },
+        },
+      },
+      {
+        name: 'get_content_shares',
+        description: '📤 Get content that instructors or peers have shared directly with you. This is separate from regular course content - it\'s personal shares. Shows unread shares first with sender info and shared dates.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            includeCount: {
+              type: 'boolean',
+              description: 'Optional: Include unread count summary at the top. Default: false',
+            },
+          },
         },
       },
       {
@@ -2821,6 +2856,56 @@ Better than find_files because it shows:
             {
               type: "text",
               text: `✅ Bookmark ${deleteBookmarkParams.bookmarkId} deleted successfully`
+            }
+          ]
+        };
+      }
+
+      case 'get_recent_history': {
+        const historyParams = input as { groupByDate?: boolean };
+        const config = getCanvasConfig();
+
+        const history = await getRecentHistory({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken
+        });
+
+        // Use date grouping if requested
+        const formattedHistory = historyParams.groupByDate 
+          ? formatHistoryByDate(history)
+          : formatHistory(history);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedHistory
+            }
+          ]
+        };
+      }
+
+      case 'get_content_shares': {
+        const contentShareParams = input as { includeCount?: boolean };
+        const config = getCanvasConfig();
+
+        const params: GetContentSharesParams = {
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken
+        };
+
+        const shares = await getReceivedContentShares(params);
+
+        // Include unread count if requested
+        const formattedShares = contentShareParams.includeCount
+          ? await formatContentSharesWithCount(shares, params)
+          : formatContentShares(shares);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedShares
             }
           ]
         };
