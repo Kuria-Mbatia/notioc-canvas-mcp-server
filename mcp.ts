@@ -57,6 +57,13 @@ import { getCurrentCourses, CurrentCoursesParams } from './tools/current-courses
 import {
   listGroups, getGroupDetails, listGroupMembers, listGroupDiscussions, getGroupDiscussion, postGroupDiscussion
 } from './tools/groups.js';
+import { getAccountNotifications, dismissNotification, formatNotifications, GetNotificationsParams } from './tools/notifications.js';
+import {
+  getPlannerItems, getPlannerNotes, createPlannerNote, updatePlannerNote,
+  deletePlannerNote, markPlannerItemComplete, formatPlannerItems,
+  GetPlannerItemsParams, CreatePlannerNoteParams, UpdatePlannerNoteParams,
+  MarkPlannerCompleteParams
+} from './tools/planner.js';
 
 // Import tool help and guidance systems
 import { getToolHelp, getAllToolsOverview, searchTools } from './lib/tool-help.js';
@@ -429,6 +436,134 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           },
           required: ['groupId', 'title', 'message'],
+        },
+      },
+      {
+        name: 'get_account_notifications',
+        description: '🚨 Get active account-level notifications (global alerts, campus closures, emergencies, policy changes). These are system-wide announcements that all students need to know about. IMPORTANT: Use this when users ask "what do I need to know today?" or "any important announcements?"',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'get_planner_items',
+        description: '📅 Get unified TODO/planner view across all courses (Canvas native planner). Shows assignments, quizzes, discussions, calendar events, and personal notes in chronological order. Use this when users ask "what do I need to do today/this week?" or "what\'s coming up?" Perfect for daily/weekly planning.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            startDate: {
+              type: 'string',
+              description: 'Start date filter (ISO 8601 format: YYYY-MM-DD). Defaults to today if not specified.',
+            },
+            endDate: {
+              type: 'string',
+              description: 'End date filter (ISO 8601 format: YYYY-MM-DD). Optional.',
+            },
+            contextCodes: {
+              type: 'array',
+              description: 'Filter by specific courses (e.g., ["course_123", "course_456"]). Optional.',
+              items: { type: 'string' },
+            },
+            filter: {
+              type: 'string',
+              description: 'Filter option. Use "new_activity" to show only items with recent updates.',
+              enum: ['new_activity'],
+            },
+          },
+        },
+      },
+      {
+        name: 'create_planner_note',
+        description: '📌 Create a personal planner note/reminder (Canvas native TODO item). Students use this for custom reminders like "study for midterm" or "office hours with professor". These appear in Canvas planner alongside course items.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              description: 'Note title (e.g., "Study for Bio midterm")',
+            },
+            details: {
+              type: 'string',
+              description: 'Note details/description (optional)',
+            },
+            todoDate: {
+              type: 'string',
+              description: 'When this TODO is due (ISO 8601 format: YYYY-MM-DD)',
+            },
+            courseId: {
+              type: 'string',
+              description: 'Associate with a specific course (optional)',
+            },
+          },
+          required: ['title', 'todoDate'],
+        },
+      },
+      {
+        name: 'update_planner_note',
+        description: '✏️ Update an existing planner note (change title, date, details, or associated course)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            noteId: {
+              type: 'string',
+              description: 'The planner note ID to update',
+            },
+            title: {
+              type: 'string',
+              description: 'New note title (optional)',
+            },
+            details: {
+              type: 'string',
+              description: 'New note details (optional)',
+            },
+            todoDate: {
+              type: 'string',
+              description: 'New due date (ISO 8601 format: YYYY-MM-DD) (optional)',
+            },
+            courseId: {
+              type: 'string',
+              description: 'New course association (optional)',
+            },
+          },
+          required: ['noteId'],
+        },
+      },
+      {
+        name: 'delete_planner_note',
+        description: '🗑️ Delete a personal planner note',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            noteId: {
+              type: 'string',
+              description: 'The planner note ID to delete',
+            },
+          },
+          required: ['noteId'],
+        },
+      },
+      {
+        name: 'mark_planner_item_complete',
+        description: '✅ Mark a planner item as complete/incomplete (check off TODO items in Canvas planner). Works for assignments, quizzes, discussions, and notes. Students use this to track progress.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            plannableType: {
+              type: 'string',
+              description: 'Type of item (assignment, quiz, discussion_topic, planner_note, etc.)',
+              enum: ['assignment', 'quiz', 'discussion_topic', 'wiki_page', 'planner_note', 'calendar_event', 'assessment_request'],
+            },
+            plannableId: {
+              type: 'string',
+              description: 'The ID of the item to mark complete',
+            },
+            markedComplete: {
+              type: 'boolean',
+              description: 'true to mark complete, false to mark incomplete',
+            },
+          },
+          required: ['plannableType', 'plannableId', 'markedComplete'],
         },
       },
       {
@@ -1983,6 +2118,134 @@ Better than find_files because it shows:
             {
               type: "text",
               text: `✅ Successfully created discussion "${result.title}" in group (ID: ${result.id})`
+            }
+          ]
+        };
+      }
+
+      case 'get_account_notifications': {
+        const notifications = await getAccountNotifications({
+          ...getCanvasConfig()
+        });
+        
+        const formattedOutput = formatNotifications(notifications);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'get_planner_items': {
+        const plannerParams = input as Partial<GetPlannerItemsParams>;
+        
+        // Default to today if no start date provided
+        if (!plannerParams.startDate) {
+          plannerParams.startDate = new Date().toISOString().split('T')[0];
+        }
+        
+        const items = await getPlannerItems({
+          ...getCanvasConfig(),
+          ...(plannerParams as any)
+        });
+        
+        const formattedOutput = formatPlannerItems(items);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'create_planner_note': {
+        const noteParams = input as Partial<CreatePlannerNoteParams>;
+        
+        const note = await createPlannerNote({
+          ...getCanvasConfig(),
+          ...(noteParams as any)
+        });
+        
+        const markdown = `✅ Created planner note: **${note.title}**\n\n` +
+          `📅 Due: ${new Date(note.todo_date).toLocaleDateString()}\n` +
+          (note.description ? `📝 Details: ${note.description}\n` : '') +
+          (note.course_id ? `📚 Course ID: ${note.course_id}\n` : '') +
+          `\n🆔 Note ID: ${note.id}`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'update_planner_note': {
+        const updateParams = input as Partial<UpdatePlannerNoteParams>;
+        
+        const note = await updatePlannerNote({
+          ...getCanvasConfig(),
+          ...(updateParams as any)
+        });
+        
+        const markdown = `✅ Updated planner note: **${note.title}**\n\n` +
+          `📅 Due: ${new Date(note.todo_date).toLocaleDateString()}\n` +
+          (note.description ? `📝 Details: ${note.description}\n` : '') +
+          (note.course_id ? `📚 Course ID: ${note.course_id}\n` : '');
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'delete_planner_note': {
+        const deleteParams = input as { noteId: string };
+        
+        await deletePlannerNote({
+          ...getCanvasConfig(),
+          noteId: deleteParams.noteId
+        });
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Successfully deleted planner note (ID: ${deleteParams.noteId})`
+            }
+          ]
+        };
+      }
+
+      case 'mark_planner_item_complete': {
+        const completeParams = input as Partial<MarkPlannerCompleteParams>;
+        
+        const override = await markPlannerItemComplete({
+          ...getCanvasConfig(),
+          ...(completeParams as any)
+        });
+        
+        const status = override.marked_complete ? '✅ Marked complete' : '⬜ Marked incomplete';
+        const markdown = `${status}: ${completeParams.plannableType} (ID: ${completeParams.plannableId})`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
             }
           ]
         };

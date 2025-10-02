@@ -4,7 +4,7 @@ A comprehensive Model Context Protocol (MCP) server that provides programmatic a
 
 ## About Notioc
 
-Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 44 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
+Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 49 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
 
 ### Technical Overview
 
@@ -147,7 +147,7 @@ For complete setup instructions including API token generation, environment conf
 
 ## MCP Tools Reference
 
-Notioc provides 44 specialized MCP tools organized by functional category:
+Notioc provides 49 specialized MCP tools organized by functional category:
 
 ### Course Management Tools
 
@@ -196,6 +196,11 @@ Notioc provides 44 specialized MCP tools organized by functional category:
 **get_calendar_events** - Retrieve upcoming calendar events
 **get_dashboard** - Dashboard information and upcoming items
 **get_course_analytics** - Course-level analytics and insights
+**get_planner_items** - Unified TODO/planner view across all courses
+**create_planner_note** - Create personal reminders and planning notes
+**update_planner_note** - Edit existing planner notes
+**delete_planner_note** - Remove planner notes
+**mark_planner_item_complete** - Check off completed planner items
 
 ### Communication Tools
 
@@ -213,6 +218,10 @@ Notioc provides 44 specialized MCP tools organized by functional category:
 **list_group_discussions** - Group discussion topics
 **get_group_discussion** - Read group discussion content
 **post_group_discussion** - Create group discussion posts
+
+### Notifications and Alerts
+
+**get_account_notifications** - Retrieve active campus-wide announcements and alerts
 
 ### User and Profile Tools
 
