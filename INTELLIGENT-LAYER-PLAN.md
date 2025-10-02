@@ -416,10 +416,13 @@ Claude (with complete visibility): "URGENT: You have a peer review due in 4 hour
 
 ---
 
-## Phase 2: Smart Discovery & Navigation (Week 2)
+## Phase 2: Smart Discovery & Navigation (Week 2) - 🔥 2/6 COMPLETE (33%)
 **Goal**: Make Claude navigate Canvas like I navigate your codebase
 
-### 2.1 Favorites API ⭐⭐
+### 2.1 Favorites API ⭐⭐ - ✅ COMPLETE
+**Status**: Implemented October 2, 2025
+**Implementation Files**: `tools/favorites.ts`, `mcp.ts`
+
 **Why**: Quick context filtering - "my important courses"
 
 **API Endpoints**:
@@ -427,18 +430,43 @@ Claude (with complete visibility): "URGENT: You have a peer review due in 4 hour
 - `POST /api/v1/users/self/favorites/courses/{id}` - Add to favorites
 - `DELETE /api/v1/users/self/favorites/courses/{id}` - Remove from favorites
 
-**New Tool**: `manage_favorites`
-```typescript
-// Get starred courses, add/remove
-// Returns: list of favorite courses for quick filtering
+**Tools Implemented**:
+- `get_favorite_courses` - List all starred courses
+- `add_favorite_course` - Star a course for quick access
+- `remove_favorite_course` - Unstar a course
+
+**Features**:
+- Role display (student/teacher/ta)
+- Enrollment state indicators (active/completed/invited)
+- Date ranges for term identification
+- Quick filtering to important courses
+
+**Example Output**:
+```
+⭐ Your Favorite Courses
+
+📚 Introduction to Psychology (active) - student
+   ID: 123456 | Start: 2025-01-15 | End: 2025-05-15
+
+📚 Data Structures (active) - student
+   ID: 123457 | Start: 2025-01-15 | End: 2025-05-15
 ```
 
-**Student Value**: "Show me my important courses" → instant context
+**Student Queries Enabled**:
+- "Show me my important courses"
+- "What are my starred classes?"
+- "Star my Biology course for quick access"
+- "Unstar that course I finished"
+
+**Impact**: +2% Canvas parity (quick navigation unlock)
 
 ---
 
-### 2.2 Course Nicknames ⭐⭐
-**Why**: Natural language understanding - "the hard one" vs "BIO-301-F25-SEC02"
+### 2.2 Course Nicknames ⭐⭐ - ✅ COMPLETE
+**Status**: Implemented October 2, 2025
+**Implementation Files**: `tools/nicknames.ts`, `mcp.ts`
+
+**Why**: Natural language understanding - "Biology" vs "BIO-301-F25-SEC02"
 
 **API Endpoints**:
 - `GET /api/v1/users/self/course_nicknames` - All nicknames
@@ -446,17 +474,43 @@ Claude (with complete visibility): "URGENT: You have a peer review due in 4 hour
 - `PUT /api/v1/users/self/course_nicknames/{course_id}` - Set nickname
 - `DELETE /api/v1/users/self/course_nicknames/{course_id}` - Remove nickname
 
-**New Tool**: `manage_course_nicknames`
-```typescript
-// Set: "BIO 101" → "Biology" or "The hard class"
-// Get: Resolve "help me with biology" → course ID
+**Tools Implemented**:
+- `get_all_course_nicknames` - List all course nicknames
+- `set_course_nickname` - Set friendly course name
+- `remove_course_nickname` - Clear nickname
+
+**Features**:
+- Natural language course references
+- Original name → nickname mapping display
+- Enables conversational queries without course codes
+- Full CRUD operations for nicknames
+
+**Example Output**:
+```
+📚 Your Course Nicknames
+
+Course: BIO-301-F25-SEC02-SPRING-2025
+Nickname: Biology
+
+Course: CSCI-401-F25-001-SENIOR-PROJECT
+Nickname: Capstone
 ```
 
-**Student Value**: Natural queries work better - "help me with biology" vs "help me with BIO-301-F25-001"
+**Student Queries Enabled**:
+- "Help me with Biology" (resolves nickname automatically)
+- "What's the nickname for CSCI-401?"
+- "Call my Capstone course 'Senior Project'"
+- "Show me all my course nicknames"
+- "Remove the nickname for that course"
+
+**Impact**: +2% Canvas parity (natural language unlock)
 
 ---
 
-### 2.3 Bookmarks API ⭐⭐
+### 2.3 Bookmarks API ⭐⭐ - ✅ COMPLETE
+**Status**: Implemented October 2, 2025
+**Implementation Files**: `tools/bookmarks.ts`, `mcp.ts`
+
 **Why**: Students save important Canvas URLs - specific discussion threads, study resources
 
 **API Endpoints**:
@@ -466,17 +520,45 @@ Claude (with complete visibility): "URGENT: You have a peer review due in 4 hour
 - `PUT /api/v1/users/self/bookmarks/{id}` - Update bookmark
 - `DELETE /api/v1/users/self/bookmarks/{id}` - Delete bookmark
 
-**New Tool**: `manage_bookmarks`
-```typescript
-// Input: { action: "list" | "add" | "remove", url?, name? }
-// Returns: saved Canvas resources
+**Tools Implemented**:
+- `get_bookmarks` - List all saved bookmarks
+- `get_bookmark` - Get specific bookmark details
+- `create_bookmark` - Save Canvas URL (name + url required)
+- `update_bookmark` - Edit bookmark (rename, change URL, reorder)
+- `delete_bookmark` - Remove bookmark
+
+**Features**:
+- Save important Canvas resources (discussions, study guides, assignments)
+- Full CRUD operations
+- Position-based ordering for organizing bookmarks
+- Quick rediscovery of saved resources
+- Works with any Canvas page URL
+
+**Example Output**:
+```
+📑 Your Canvas Bookmarks
+
+1. Midterm Study Guide
+   🔗 https://canvas.institution.edu/courses/12345/pages/midterm-study-guide
+   ID: 98765 | Position: 1
+
+2. Week 3 Discussion - Peer Review
+   🔗 https://canvas.institution.edu/courses/12345/discussion_topics/67890
+   ID: 98766 | Position: 2
 ```
 
-**Student Value**: "Show me that study guide I saved" "Bookmark this discussion thread"
+**Student Queries Enabled**:
+- "Show me that study guide I bookmarked"
+- "Bookmark this discussion thread"
+- "What resources have I saved?"
+- "Find the midterm prep materials I saved"
+- "Delete that old bookmark"
+
+**Impact**: +3% Canvas parity (saved resources unlock)
 
 ---
 
-### 2.4 History API ⭐
+### 2.4 History API ⭐ - ⏳ NOT STARTED
 **Why**: "What was that page I looked at yesterday?"
 
 **API Endpoints**:

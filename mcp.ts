@@ -74,6 +74,19 @@ import {
   formatPeerReviews, formatAllPeerReviews,
   GetPeerReviewsParams, GetPeerReviewSubmissionParams
 } from './tools/peer-reviews.js';
+import {
+  getFavoriteCourses, addFavoriteCourse, removeFavoriteCourse, formatFavorites,
+  GetFavoritesParams, AddFavoriteParams, RemoveFavoriteParams
+} from './tools/favorites.js';
+import {
+  getAllNicknames, getNickname, setNickname, removeNickname, formatNicknames,
+  GetNicknamesParams, GetNicknameParams, SetNicknameParams, RemoveNicknameParams
+} from './tools/nicknames.js';
+import {
+  getBookmarks, getBookmark, createBookmark, updateBookmark, deleteBookmark,
+  formatBookmarks, formatBookmark,
+  GetBookmarksParams, GetBookmarkParams, CreateBookmarkParams, UpdateBookmarkParams, DeleteBookmarkParams
+} from './tools/bookmarks.js';
 
 // Import tool help and guidance systems
 import { getToolHelp, getAllToolsOverview, searchTools } from './lib/tool-help.js';
@@ -670,6 +683,166 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['courseId', 'assignmentId', 'submissionId'],
+        },
+      },
+      {
+        name: 'get_favorite_courses',
+        description: '⭐ Get your favorite/starred courses. Favorites are courses you\'ve starred in Canvas for quick access. Perfect for filtering to "important courses" or "this semester\'s main classes". Use when students say "show me my important courses" or "my main classes".',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'add_favorite_course',
+        description: '⭐ Star/favorite a course for quick access. Adds course to your favorites list in Canvas. Use when students want to mark a course as important or frequently accessed.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID to favorite (numeric)',
+            },
+          },
+          required: ['courseId'],
+        },
+      },
+      {
+        name: 'remove_favorite_course',
+        description: '⭐ Unstar/unfavorite a course. Removes course from your favorites list in Canvas.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID to unfavorite (numeric)',
+            },
+          },
+          required: ['courseId'],
+        },
+      },
+      {
+        name: 'get_all_course_nicknames',
+        description: '📝 Get all your course nicknames. Nicknames let you call courses by friendly names ("Biology" instead of "BIO-301-F25-SEC02"). Helps with natural language queries.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'set_course_nickname',
+        description: '📝 Set a friendly nickname for a course. Makes it easier to reference courses naturally. Example: rename "CSCI-401-F25-001" to just "Capstone" or "Senior Project".',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            nickname: {
+              type: 'string',
+              description: 'The friendly nickname to use (e.g., "Biology", "Calc 2", "History")',
+            },
+          },
+          required: ['courseId', 'nickname'],
+        },
+      },
+      {
+        name: 'remove_course_nickname',
+        description: '📝 Remove a course nickname and revert to the official course name.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+          },
+          required: ['courseId'],
+        },
+      },
+      {
+        name: 'get_bookmarks',
+        description: '📑 Get all your saved Canvas bookmarks. Students bookmark important resources like study guides, discussion threads, and assignment pages for quick access.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'get_bookmark',
+        description: '📑 Get details for a specific bookmark by ID.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            bookmarkId: {
+              type: 'string',
+              description: 'The bookmark ID',
+            },
+          },
+          required: ['bookmarkId'],
+        },
+      },
+      {
+        name: 'create_bookmark',
+        description: '📑 Save a Canvas URL as a bookmark. Perfect for saving important discussion threads, study resources, or assignment pages you need to revisit.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'A descriptive name for the bookmark (e.g., "Midterm Study Guide", "Week 3 Discussion")',
+            },
+            url: {
+              type: 'string',
+              description: 'The Canvas URL to bookmark (must be a Canvas page URL)',
+            },
+            position: {
+              type: 'number',
+              description: 'Optional: Position for ordering bookmarks (1-based)',
+            },
+          },
+          required: ['name', 'url'],
+        },
+      },
+      {
+        name: 'update_bookmark',
+        description: '📑 Update an existing bookmark (rename it or change the URL).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            bookmarkId: {
+              type: 'string',
+              description: 'The bookmark ID to update',
+            },
+            name: {
+              type: 'string',
+              description: 'New name for the bookmark',
+            },
+            url: {
+              type: 'string',
+              description: 'New URL for the bookmark',
+            },
+            position: {
+              type: 'number',
+              description: 'New position for ordering',
+            },
+          },
+          required: ['bookmarkId'],
+        },
+      },
+      {
+        name: 'delete_bookmark',
+        description: '📑 Delete a saved bookmark.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            bookmarkId: {
+              type: 'string',
+              description: 'The bookmark ID to delete',
+            },
+          },
+          required: ['bookmarkId'],
         },
       },
       {
@@ -2441,6 +2614,213 @@ Better than find_files because it shows:
             {
               type: "text",
               text: summary
+            }
+          ]
+        };
+      }
+
+      case 'get_favorite_courses': {
+        const favorites = await getFavoriteCourses({
+          ...getCanvasConfig()
+        });
+
+        const formattedOutput = formatFavorites(favorites);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'add_favorite_course': {
+        const addParams = input as Partial<AddFavoriteParams>;
+
+        const favorite = await addFavoriteCourse({
+          ...getCanvasConfig(),
+          courseId: addParams.courseId!,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `⭐ Successfully added **${favorite.name}** to your favorites!\n\n🆔 Course ID: ${favorite.id}\n📚 Code: ${favorite.course_code}`
+            }
+          ]
+        };
+      }
+
+      case 'remove_favorite_course': {
+        const removeParams = input as Partial<RemoveFavoriteParams>;
+
+        await removeFavoriteCourse({
+          ...getCanvasConfig(),
+          courseId: removeParams.courseId!,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `⭐ Successfully removed course ${removeParams.courseId} from your favorites.`
+            }
+          ]
+        };
+      }
+
+      case 'get_all_course_nicknames': {
+        const nicknames = await getAllNicknames({
+          ...getCanvasConfig()
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formatNicknames(nicknames)
+            }
+          ]
+        };
+      }
+
+      case 'set_course_nickname': {
+        const setParams = input as Partial<SetNicknameParams>;
+
+        const nickname = await setNickname({
+          ...getCanvasConfig(),
+          courseId: setParams.courseId!,
+          nickname: setParams.nickname!
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Course ${nickname.course_id} nicknamed "${nickname.nickname}"`
+            }
+          ]
+        };
+      }
+
+      case 'remove_course_nickname': {
+        const removeNicknameParams = input as Partial<RemoveNicknameParams>;
+
+        await removeNickname({
+          ...getCanvasConfig(),
+          courseId: removeNicknameParams.courseId!
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Removed nickname for course ${removeNicknameParams.courseId}`
+            }
+          ]
+        };
+      }
+
+      case 'get_bookmarks': {
+        const config = getCanvasConfig();
+        const bookmarks = await getBookmarks({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formatBookmarks(bookmarks)
+            }
+          ]
+        };
+      }
+
+      case 'get_bookmark': {
+        const getBookmarkParams = input as Partial<GetBookmarkParams>;
+        const config = getCanvasConfig();
+
+        const bookmark = await getBookmark({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken,
+          bookmarkId: getBookmarkParams.bookmarkId!
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formatBookmark(bookmark)
+            }
+          ]
+        };
+      }
+
+      case 'create_bookmark': {
+        const createBookmarkParams = input as Partial<CreateBookmarkParams>;
+        const config = getCanvasConfig();
+
+        const bookmark = await createBookmark({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken,
+          name: createBookmarkParams.name!,
+          url: createBookmarkParams.url!,
+          position: createBookmarkParams.position,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Bookmark created: "${bookmark.name}"\n🔗 ${bookmark.url}\nID: ${bookmark.id}`
+            }
+          ]
+        };
+      }
+
+      case 'update_bookmark': {
+        const updateBookmarkParams = input as Partial<UpdateBookmarkParams>;
+        const config = getCanvasConfig();
+
+        const bookmark = await updateBookmark({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken,
+          bookmarkId: updateBookmarkParams.bookmarkId!,
+          name: updateBookmarkParams.name,
+          url: updateBookmarkParams.url,
+          position: updateBookmarkParams.position,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Bookmark updated: "${bookmark.name}"\n🔗 ${bookmark.url}`
+            }
+          ]
+        };
+      }
+
+      case 'delete_bookmark': {
+        const deleteBookmarkParams = input as Partial<DeleteBookmarkParams>;
+        const config = getCanvasConfig();
+
+        await deleteBookmark({
+          canvasUrl: config.canvasBaseUrl,
+          apiToken: config.accessToken,
+          bookmarkId: deleteBookmarkParams.bookmarkId!
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Bookmark ${deleteBookmarkParams.bookmarkId} deleted successfully`
             }
           ]
         };
