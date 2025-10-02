@@ -64,6 +64,16 @@ import {
   GetPlannerItemsParams, CreatePlannerNoteParams, UpdatePlannerNoteParams,
   MarkPlannerCompleteParams
 } from './tools/planner.js';
+import {
+  getCourseAnalytics, getActivityData, getAssignmentAnalytics, getCommunicationAnalytics,
+  getStudentPerformanceSummary, formatAnalyticsSummary,
+  GetCourseAnalyticsParams
+} from './tools/analytics-dashboard.js';
+import {
+  listPeerReviews, getAllPeerReviews, getPeerReviewSubmission,
+  formatPeerReviews, formatAllPeerReviews,
+  GetPeerReviewsParams, GetPeerReviewSubmissionParams
+} from './tools/peer-reviews.js';
 
 // Import tool help and guidance systems
 import { getToolHelp, getAllToolsOverview, searchTools } from './lib/tool-help.js';
@@ -564,6 +574,102 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['plannableType', 'plannableId', 'markedComplete'],
+        },
+      },
+      {
+        name: 'get_canvas_analytics',
+        description: '📊 Get Canvas\'s native analytics dashboard for a course (engagement metrics, participation levels). Shows page views, activity level, assignment patterns, and compares you to class averages. Use this when students ask "How am I doing?" or "Am I participating enough?"',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            courseName: {
+              type: 'string',
+              description: 'The course name (e.g., "Biology 101"). If provided, courseId is not required.',
+            },
+            includeActivity: {
+              type: 'boolean',
+              description: 'Include detailed activity data over time (page views and participations by day)',
+              default: false,
+            },
+            includeAssignments: {
+              type: 'boolean',
+              description: 'Include assignment-level analytics',
+              default: false,
+            },
+          },
+        },
+      },
+      {
+        name: 'get_student_performance_summary',
+        description: '🎯 Get comprehensive performance summary combining Canvas analytics + grades. Perfect for "How am I doing in this course?" questions. Shows engagement metrics, grade, submission patterns, strengths, and areas for improvement.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            courseName: {
+              type: 'string',
+              description: 'The course name (e.g., "Biology 101"). If provided, courseId is not required.',
+            },
+          },
+        },
+      },
+      {
+        name: 'get_all_peer_reviews',
+        description: '👥 Get ALL peer reviews across all courses. Shows which assignments have peer reviews, how many you need to complete, and feedback you\'ve received. Use this when students ask "Do I have any peer reviews?" or "What peer reviews are pending?"',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'list_peer_reviews_for_assignment',
+        description: '📝 Get detailed peer review information for a specific assignment. Shows reviews you need to complete (with student names unless anonymous) and reviews of your work (with feedback). Use this to see specific peer review details.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            assignmentId: {
+              type: 'string',
+              description: 'The assignment ID (numeric)',
+            },
+            courseName: {
+              type: 'string',
+              description: 'The course name (optional, for display purposes)',
+            },
+          },
+          required: ['courseId', 'assignmentId'],
+        },
+      },
+      {
+        name: 'get_peer_review_submission',
+        description: '📄 Get the submission content you need to review for a peer review. Returns the student\'s submission text, attachments, and any existing comments. Use this when completing a peer review.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The Canvas course ID (numeric)',
+            },
+            assignmentId: {
+              type: 'string',
+              description: 'The assignment ID (numeric)',
+            },
+            submissionId: {
+              type: 'string',
+              description: 'The submission ID to review (from list_peer_reviews_for_assignment)',
+            },
+          },
+          required: ['courseId', 'assignmentId', 'submissionId'],
         },
       },
       {
@@ -1537,7 +1643,7 @@ Better than find_files because it shows:
         },
         {
           name: 'generate_what_if_scenarios',
-          description: '🎯 **NEW PHASE 2** Generate what-if scenarios for achieving target grades. Answers questions like "What grade do I need on the final to get an A?"',
+          description: '🎯 **CRITICAL STUDENT TOOL** Generate what-if grade scenarios to answer "What grade do I need on the final to get an A?" Calculates required scores on remaining work to achieve target grades. Shows if target is achievable and provides detailed recommendations. Students use this constantly for grade planning.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -2241,6 +2347,193 @@ Better than find_files because it shows:
         const status = override.marked_complete ? '✅ Marked complete' : '⬜ Marked incomplete';
         const markdown = `${status}: ${completeParams.plannableType} (ID: ${completeParams.plannableId})`;
         
+        return {
+          content: [
+            {
+              type: "text",
+              text: markdown
+            }
+          ]
+        };
+      }
+
+      case 'get_canvas_analytics': {
+        const analyticsParams = input as Partial<GetCourseAnalyticsParams> & {
+          includeActivity?: boolean;
+          includeAssignments?: boolean;
+          courseName?: string;
+        };
+
+        // Get summary analytics
+        const summary = await getCourseAnalytics({
+          ...getCanvasConfig(),
+          courseId: analyticsParams.courseId!,
+        });
+
+        // Optionally fetch detailed data
+        let activityData;
+        let assignmentData;
+
+        if (analyticsParams.includeActivity) {
+          activityData = await getActivityData({
+            ...getCanvasConfig(),
+            courseId: analyticsParams.courseId!,
+          }).catch(err => {
+            logger.warn('[Analytics] Activity data not available:', err);
+            return undefined;
+          });
+        }
+
+        if (analyticsParams.includeAssignments) {
+          assignmentData = await getAssignmentAnalytics({
+            ...getCanvasConfig(),
+            courseId: analyticsParams.courseId!,
+          }).catch(err => {
+            logger.warn('[Analytics] Assignment data not available:', err);
+            return undefined;
+          });
+        }
+
+        const formattedOutput = formatAnalyticsSummary(summary, activityData, assignmentData);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: analyticsParams.courseName 
+                ? `📚 **${analyticsParams.courseName}**\n\n${formattedOutput}`
+                : formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'get_student_performance_summary': {
+        const performanceParams = input as Partial<GetCourseAnalyticsParams> & {
+          courseName?: string;
+        };
+
+        // Get current grade if available
+        let currentGrade: number | undefined;
+        try {
+          const grades = await getGrades({
+            ...getCanvasConfig(),
+            courseId: performanceParams.courseId!,
+          });
+          
+          // getGrades returns array of GradeInfo, find the matching course
+          if (grades.length > 0 && grades[0].currentScore !== undefined && grades[0].currentScore !== null) {
+            currentGrade = grades[0].currentScore;
+          }
+        } catch (err) {
+          logger.warn('[Analytics] Could not fetch grades for performance summary:', err);
+        }
+
+        const summary = await getStudentPerformanceSummary({
+          ...getCanvasConfig(),
+          courseId: performanceParams.courseId!,
+          currentGrade,
+          courseName: performanceParams.courseName,
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: summary
+            }
+          ]
+        };
+      }
+
+      case 'get_all_peer_reviews': {
+        const allReviews = await getAllPeerReviews({
+          ...getCanvasConfig()
+        });
+
+        const formattedOutput = formatAllPeerReviews(allReviews);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'list_peer_reviews_for_assignment': {
+        const peerReviewParams = input as Partial<GetPeerReviewsParams> & {
+          courseName?: string;
+        };
+
+        const reviewsData = await listPeerReviews({
+          ...getCanvasConfig(),
+          courseId: peerReviewParams.courseId!,
+          assignmentId: peerReviewParams.assignmentId!,
+        });
+
+        const formattedOutput = formatPeerReviews(reviewsData);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: peerReviewParams.courseName 
+                ? `📚 **${peerReviewParams.courseName}**\n\n${formattedOutput}`
+                : formattedOutput
+            }
+          ]
+        };
+      }
+
+      case 'get_peer_review_submission': {
+        const submissionParams = input as Partial<GetPeerReviewSubmissionParams>;
+
+        const submission = await getPeerReviewSubmission({
+          ...getCanvasConfig(),
+          courseId: submissionParams.courseId!,
+          assignmentId: submissionParams.assignmentId!,
+          submissionId: submissionParams.submissionId!,
+        });
+
+        let markdown = `📄 Peer Review Submission\n\n`;
+        markdown += `**User ID:** ${submission.user_id}\n`;
+        markdown += `**Submission ID:** ${submission.id}\n`;
+        
+        if (submission.submitted_at) {
+          markdown += `**Submitted:** ${new Date(submission.submitted_at).toLocaleString()}\n`;
+        }
+        
+        markdown += '\n---\n\n';
+
+        if (submission.body) {
+          markdown += `**Submission Content:**\n\n${submission.body}\n\n`;
+        }
+
+        if (submission.attachments && submission.attachments.length > 0) {
+          markdown += `**Attachments (${submission.attachments.length}):**\n\n`;
+          submission.attachments.forEach(att => {
+            markdown += `📎 **${att.display_name}** (${att.filename})\n`;
+            markdown += `   Size: ${(att.size / 1024).toFixed(2)} KB\n`;
+            markdown += `   Type: ${att['content-type']}\n`;
+            markdown += `   URL: ${att.url}\n\n`;
+          });
+        }
+
+        if (submission.submission_comments && submission.submission_comments.length > 0) {
+          markdown += `**Existing Comments (${submission.submission_comments.length}):**\n\n`;
+          submission.submission_comments.forEach(comment => {
+            markdown += `💬 **${comment.author_name}** (${new Date(comment.created_at).toLocaleString()}):\n`;
+            markdown += `   ${comment.comment}\n\n`;
+          });
+        }
+
+        if (submission.preview_url) {
+          markdown += `\n🔗 **Preview URL:** ${submission.preview_url}`;
+        }
+
         return {
           content: [
             {

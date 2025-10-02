@@ -4,7 +4,7 @@ A comprehensive Model Context Protocol (MCP) server that provides programmatic a
 
 ## About Notioc
 
-Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 49 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
+Notioc is an intelligent Canvas LMS integration platform built on the Model Context Protocol (MCP), a standardized protocol for connecting AI assistants to external data sources and tools. This server implementation provides 55 specialized tools that expose Canvas LMS functionality through a unified interface, enabling AI assistants like Claude to retrieve, analyze, and manipulate Canvas data on behalf of users.
 
 ### Technical Overview
 
@@ -147,7 +147,7 @@ For complete setup instructions including API token generation, environment conf
 
 ## MCP Tools Reference
 
-Notioc provides 49 specialized MCP tools organized by functional category:
+Notioc provides 55 specialized MCP tools organized by functional category:
 
 ### Course Management Tools
 
@@ -166,8 +166,10 @@ Notioc provides 49 specialized MCP tools organized by functional category:
 **generate_what_if_scenarios** - Predictive grade calculations
 **get_grade_trends** - Historical grade progression analysis
 **get_gradebook_categories** - Weighted category information
+**get_canvas_analytics** - Native Canvas analytics dashboard (engagement, participation)
+**get_student_performance_summary** - Combined analytics + grades performance report
 
-### Assignment Tools
+### Assignment and Peer Review Tools
 
 **get_assignments** - List assignments with filtering options
 **get_assignment_details** - Detailed assignment information and requirements
@@ -175,6 +177,9 @@ Notioc provides 49 specialized MCP tools organized by functional category:
 **get_previous_submission_content** - Access past submission text and files
 **get_submission_comments** - Instructor feedback and comments
 **submit_assignment** - Programmatic assignment submission
+**get_all_peer_reviews** - Discover peer reviews across all courses
+**list_peer_reviews_for_assignment** - Detailed peer review information
+**get_peer_review_submission** - Access submission content for peer review
 
 ### File and Document Tools
 
